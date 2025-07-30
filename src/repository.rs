@@ -17,9 +17,8 @@ impl MemoRepository {
 
     /// data_dirからMemoRepositoryを作成
     pub fn from_data_dir(data_dir: PathBuf) -> Self {
-        let memo_dir = data_dir.join("memo");
         let context = MemoContext {
-            memo_dir,
+            memo_dir: data_dir,
             editor: std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string()),
         };
         Self::new(context)

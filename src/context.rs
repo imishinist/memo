@@ -48,12 +48,8 @@ pub struct Context {
 
 impl Context {
     pub fn from_memo_context(memo_context: &MemoContext) -> Self {
-        // memo_dirの親ディレクトリがdata_dir
-        let data_dir = memo_context
-            .memo_dir
-            .parent()
-            .unwrap_or(&memo_context.memo_dir)
-            .to_path_buf();
+        // memo_dir自体をdata_dirとして使用
+        let data_dir = memo_context.memo_dir.clone();
 
         Self { data_dir }
     }
