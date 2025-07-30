@@ -1,6 +1,7 @@
-use crate::utils::xdg::get_memo_dir;
+use crate::context::MemoContext;
+use crate::error::MemoResult;
 
-pub fn run() {
-    let memo_dir = get_memo_dir();
-    println!("{}", memo_dir.display());
+pub fn run(context: &MemoContext) -> MemoResult<()> {
+    println!("{}", context.memo_dir.display());
+    Ok(())
 }

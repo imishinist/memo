@@ -154,3 +154,44 @@ More content."#;
     assert!(result.frontmatter_error.is_none());
     assert_eq!(result.content, content);
 }
+
+// 新しい構造に対応したテスト
+#[test]
+fn test_memo_file_with_frontmatter() {
+    use memo::{MemoContext, MemoFile};
+    use std::fs;
+    use tempfile::TempDir;
+
+    let temp_dir = TempDir::new().unwrap();
+    let memo_dir = temp_dir.path().join("memo");
+    fs::create_dir_all(&memo_dir).unwrap();
+
+    let _context = MemoContext {
+        memo_dir: memo_dir.clone(),
+        editor: "echo".to_string(),
+    };
+
+    let content = r#"---
+title: Test Memo
+priority: 1
+---
+
+This is a test memo."#;
+
+    let memo_path = memo_dir.join("2025-01/30/143022.md");
+    let memo = MemoFile::create(&memo_path, content.to_string()).unwrap();
+
+    assert_eq!(memo.id, "2025-01/30/143022");
+    assert!(memo.frontmatter.is_some());
+    assert!(memo.frontmatter_error.is_none());
+
+    let frontmatter = memo.frontmatter.unwrap();
+    assert_eq!(
+        frontmatter.get("title").unwrap(),
+        &Value::String("Test Memo".to_string())
+    );
+    assert_eq!(
+        frontmatter.get("priority").unwrap(),
+        &Value::Number(serde_yaml::Number::from(1))
+    );
+}

@@ -1,43 +1,34 @@
-use std::path::PathBuf;
+use crate::context::MemoContext;
+use crate::error::{MemoError, MemoResult};
+use crate::repository::MemoRepository;
 use std::process::Command;
 
-use crate::utils::id_resolver::resolve_id;
+pub fn run(context: &MemoContext, id: &str) -> MemoResult<()> {
+    let repo = MemoRepository::new(context.clone());
+    let memo = repo.find_memo_by_id(id)?;
 
-pub fn run(id: &str) {
-    let file_path = match resolve_id(id) {
-        Some(path) => path,
-        None => {
-            eprintln!("Memo with ID '{}' not found", id);
-            std::process::exit(1);
-        }
-    };
-
-    if !file_path.exists() {
-        eprintln!("Memo file does not exist: {}", file_path.display());
-        std::process::exit(1);
-    }
-
-    // Open editor
-    open_editor(&file_path);
+    open_editor(context, &memo.path)?;
 
     println!("Memo edited: {}", id);
+    Ok(())
 }
 
-fn open_editor(file_path: &PathBuf) {
-    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+fn open_editor(context: &MemoContext, file_path: &std::path::Path) -> MemoResult<()> {
+    let status = Command::new(&context.editor)
+        .arg(file_path)
+        .status()
+        .map_err(|e| {
+            MemoError::EditorError(format!(
+                "Failed to launch editor '{}': {}",
+                context.editor, e
+            ))
+        })?;
 
-    let status = Command::new(&editor).arg(file_path).status();
-
-    match status {
-        Ok(exit_status) => {
-            if !exit_status.success() {
-                eprintln!("Editor exited with non-zero status");
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("Error launching editor '{}': {}", editor, e);
-            std::process::exit(1);
-        }
+    if !status.success() {
+        return Err(MemoError::EditorError(
+            "Editor exited with non-zero status".to_string(),
+        ));
     }
+
+    Ok(())
 }

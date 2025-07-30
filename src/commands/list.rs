@@ -1,15 +1,13 @@
+use crate::context::MemoContext;
+use crate::error::MemoResult;
+use crate::repository::MemoRepository;
 use chrono::{DateTime, Local};
 use serde::{Serialize, Serializer};
 use serde_yaml::Value;
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
-
-use crate::frontmatter::parse_memo_content;
-use crate::utils::xdg::get_memo_dir;
 
 #[derive(Debug, Serialize)]
-pub struct MemoFile {
+pub struct MemoListItem {
     pub id: String,
     #[serde(serialize_with = "serialize_datetime")]
     pub modified: DateTime<Local>,
@@ -25,53 +23,45 @@ where
     serializer.serialize_str(&dt.to_rfc3339())
 }
 
-pub fn run(json_output: bool) {
-    let memo_dir = get_memo_dir();
-
-    if !memo_dir.exists() {
-        if json_output {
-            return; // No output for JSON when no memos exist
-        } else {
-            println!("No memos found. Use 'memo add' to create your first memo.");
-            return;
-        }
-    }
-
-    let mut memos = collect_memos(&memo_dir);
+pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
+    let repo = MemoRepository::new(context.clone());
+    let memos = repo.list_recent_memos(20)?;
 
     if memos.is_empty() {
-        if json_output {
-            return; // No output for JSON when no memos exist
-        } else {
+        if !json_output {
             println!("No memos found. Use 'memo add' to create your first memo.");
-            return;
         }
+        return Ok(());
     }
 
-    // Sort by modification time (newest first)
-    memos.sort_by(|a, b| b.modified.cmp(&a.modified));
-
     if json_output {
-        // Output in JSONL format
-        for memo in memos.iter().take(20) {
-            if let Ok(json) = serde_json::to_string(memo) {
+        for memo in &memos {
+            let list_item = MemoListItem {
+                id: memo.id.clone(),
+                modified: get_modified_time(&memo.path)?,
+                preview: memo.preview(100),
+                metadata: memo.frontmatter.clone(),
+                metadata_error: memo.frontmatter_error.clone(),
+            };
+
+            if let Ok(json) = serde_json::to_string(&list_item) {
                 println!("{}", json);
             }
         }
     } else {
-        // Original text output
         println!("Recent memos:");
         println!();
 
-        for memo in memos.iter().take(20) {
-            // Show latest 20 memos
+        for memo in &memos {
             println!("ID: {}", memo.id);
-            println!("Modified: {}", memo.modified.format("%Y-%m-%d %H:%M:%S"));
+
+            let modified = get_modified_time(&memo.path)?;
+            println!("Modified: {}", modified.format("%Y-%m-%d %H:%M:%S"));
 
             // Display metadata information if available
-            if let Some(error) = &memo.metadata_error {
+            if let Some(error) = &memo.frontmatter_error {
                 println!("Metadata Error: {}", error);
-            } else if let Some(metadata) = &memo.metadata {
+            } else if let Some(metadata) = &memo.frontmatter {
                 if !metadata.is_empty() {
                     println!("Metadata:");
                     for (key, value) in metadata {
@@ -80,98 +70,28 @@ pub fn run(json_output: bool) {
                 }
             }
 
-            if !memo.preview.is_empty() {
-                println!("Preview: {}", memo.preview);
+            let preview = memo.preview(100);
+            if !preview.is_empty() {
+                println!("Preview: {}", preview);
             }
             println!("---");
         }
 
-        if memos.len() > 20 {
-            println!("... and {} more memos", memos.len() - 20);
-        }
-    }
-}
-
-pub fn collect_memos(memo_dir: &PathBuf) -> Vec<MemoFile> {
-    collect_memos_with_memo_dir(memo_dir, memo_dir)
-}
-
-pub fn collect_memos_with_memo_dir(memo_dir: &PathBuf, base_memo_dir: &PathBuf) -> Vec<MemoFile> {
-    let mut memos = Vec::new();
-
-    if let Ok(year_months) = fs::read_dir(memo_dir) {
-        for year_month in year_months.flatten() {
-            if year_month
-                .file_type()
-                .map(|ft| ft.is_dir())
-                .unwrap_or(false)
-            {
-                collect_from_month_dir(&year_month.path(), &mut memos, base_memo_dir);
+        if memos.len() == 20 {
+            let total_count = repo.list_all_memos()?.len();
+            if total_count > 20 {
+                println!("... and {} more memos", total_count - 20);
             }
         }
     }
 
-    memos
+    Ok(())
 }
 
-fn collect_from_month_dir(month_dir: &PathBuf, memos: &mut Vec<MemoFile>, base_memo_dir: &PathBuf) {
-    if let Ok(days) = fs::read_dir(month_dir) {
-        for day in days.flatten() {
-            if day.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                collect_from_day_dir(&day.path(), memos, base_memo_dir);
-            }
-        }
-    }
-}
-
-fn collect_from_day_dir(day_dir: &PathBuf, memos: &mut Vec<MemoFile>, base_memo_dir: &PathBuf) {
-    if let Ok(files) = fs::read_dir(day_dir) {
-        for file in files.flatten() {
-            if let Some(file_name) = file.file_name().to_str() {
-                if file_name.ends_with(".md") {
-                    if let Some(memo) = create_memo_file(&file.path(), base_memo_dir) {
-                        memos.push(memo);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn create_memo_file(file_path: &PathBuf, memo_dir: &PathBuf) -> Option<MemoFile> {
-    // Extract ID from path
-    let relative_path = file_path.strip_prefix(memo_dir).ok()?;
-    let id = relative_path.to_str()?.trim_end_matches(".md").to_string();
-
-    // Get modification time
-    let metadata = fs::metadata(file_path).ok()?;
-    let modified = DateTime::from(metadata.modified().ok()?);
-
-    // Read file content and parse frontmatter
-    let content = fs::read_to_string(file_path).ok()?;
-    let parsed = parse_memo_content(&content);
-
-    // Get preview from the main content (not frontmatter)
-    let preview = get_preview_from_content(&parsed.content);
-
-    Some(MemoFile {
-        id,
-        modified,
-        preview,
-        metadata: parsed.frontmatter,
-        metadata_error: parsed.frontmatter_error,
-    })
-}
-
-fn get_preview_from_content(content: &str) -> String {
-    let lines: Vec<&str> = content.lines().take(3).collect();
-    let preview = lines.join(" ");
-    if preview.chars().count() > 100 {
-        let truncated: String = preview.chars().take(97).collect();
-        format!("{}...", truncated)
-    } else {
-        preview
-    }
+fn get_modified_time(path: &std::path::Path) -> MemoResult<DateTime<Local>> {
+    let metadata = std::fs::metadata(path)?;
+    let modified = metadata.modified()?;
+    Ok(DateTime::from(modified))
 }
 
 fn format_yaml_value(value: &Value) -> String {
@@ -192,100 +112,56 @@ fn format_yaml_value(value: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
+    use crate::context::MemoContext;
+    use crate::repository::MemoRepository;
+    use std::fs;
+    use tempfile::TempDir;
 
-    fn setup_test_memos() -> (tempfile::TempDir, PathBuf) {
-        let temp_dir = tempdir().unwrap();
+    fn create_test_context() -> (TempDir, MemoContext) {
+        let temp_dir = TempDir::new().unwrap();
         let memo_dir = temp_dir.path().join("memo");
+        fs::create_dir_all(&memo_dir).unwrap();
 
-        // Create test directory structure
-        let test_date_dir = memo_dir.join("2025-01/30");
-        fs::create_dir_all(&test_date_dir).unwrap();
+        let context = MemoContext {
+            memo_dir,
+            editor: "echo".to_string(),
+        };
 
-        // Create test memo files
-        fs::write(
-            test_date_dir.join("143022.md"),
-            "---\ntitle: Test Memo\ntags: [\"@tag1\", \"@meeting\"]\n---\n\n# Test Memo\n\nThis is a test memo with @tag1 @meeting",
-        )
-        .unwrap();
-        fs::write(
-            test_date_dir.join("151545.md"),
-            "# Another Memo\n\nAnother test memo with @tag2",
-        )
-        .unwrap();
-
-        (temp_dir, memo_dir)
+        (temp_dir, context)
     }
 
     #[test]
-    fn test_collect_memos() {
-        let (_temp_dir, memo_dir) = setup_test_memos();
-
-        let memos = collect_memos_with_memo_dir(&memo_dir, &memo_dir);
-        assert_eq!(memos.len(), 2);
-
-        // Check that memos have correct IDs
-        let ids: Vec<&String> = memos.iter().map(|m| &m.id).collect();
-        assert!(ids.contains(&&"2025-01/30/143022".to_string()));
-        assert!(ids.contains(&&"2025-01/30/151545".to_string()));
+    fn test_list_empty() {
+        let (_temp_dir, context) = create_test_context();
+        let result = run(&context, false);
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn test_get_preview_from_content() {
-        let content = "# Title\n\nFirst line\nSecond line\nThird line\nFourth line";
-        let preview = get_preview_from_content(content);
-        // The preview takes first 3 lines: "# Title", "", "First line"
-        assert_eq!(preview, "# Title  First line");
+    fn test_list_with_memos() {
+        let (_temp_dir, context) = create_test_context();
+        let repo = MemoRepository::new(context.clone());
+
+        // テストメモを作成
+        repo.create_memo("2025-01/30/143022.md", "Test memo 1".to_string())
+            .unwrap();
+        repo.create_memo("2025-01/30/151545.md", "Test memo 2".to_string())
+            .unwrap();
+
+        let result = run(&context, false);
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn test_get_preview_from_content_long() {
-        let long_content = "a".repeat(150);
-        let preview = get_preview_from_content(&long_content);
-        assert!(preview.ends_with("..."));
-        assert!(preview.len() <= 100);
-    }
+    fn test_list_json_output() {
+        let (_temp_dir, context) = create_test_context();
+        let repo = MemoRepository::new(context.clone());
 
-    #[test]
-    fn test_create_memo_file() {
-        let (_temp_dir, memo_dir) = setup_test_memos();
+        // テストメモを作成
+        repo.create_memo("2025-01/30/143022.md", "Test memo".to_string())
+            .unwrap();
 
-        let test_file = memo_dir.join("2025-01/30/143022.md");
-
-        // Use the test version that accepts memo_dir parameter
-        if let Some(memo_file) = create_memo_file(&test_file, &memo_dir) {
-            assert_eq!(memo_file.id, "2025-01/30/143022");
-            assert!(memo_file.preview.contains("Test Memo"));
-
-            // Check metadata
-            assert!(memo_file.metadata.is_some());
-            assert!(memo_file.metadata_error.is_none());
-            let metadata = memo_file.metadata.unwrap();
-            assert_eq!(
-                metadata.get("title").unwrap().as_str().unwrap(),
-                "Test Memo"
-            );
-        } else {
-            panic!("Failed to create memo file");
-        }
-    }
-
-    #[test]
-    fn test_memo_file_serialization() {
-        let (_temp_dir, memo_dir) = setup_test_memos();
-        let memos = collect_memos_with_memo_dir(&memo_dir, &memo_dir);
-
-        assert!(!memos.is_empty());
-
-        // Test JSON serialization
-        for memo in &memos {
-            let json_result = serde_json::to_string(memo);
-            assert!(json_result.is_ok());
-
-            let json = json_result.unwrap();
-            assert!(json.contains(&memo.id));
-            assert!(json.contains("metadata"));
-            assert!(!json.contains("frontmatter")); // Ensure old field name is not present
-        }
+        let result = run(&context, true);
+        assert!(result.is_ok());
     }
 }

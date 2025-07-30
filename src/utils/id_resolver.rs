@@ -1,7 +1,6 @@
+use crate::error::{MemoError, MemoResult};
 use chrono::Local;
-use std::path::PathBuf;
-
-use super::xdg::get_memo_dir;
+use std::path::{Path, PathBuf};
 
 /// Resolve a memo ID to a file path
 /// Supports various ID formats:
@@ -9,45 +8,36 @@ use super::xdg::get_memo_dir;
 /// - Short: 0130143022 (month-day-hour-minute-second)
 /// - Shorter: 30143022 (day-hour-minute-second, same month)
 /// - Shortest: 143022 (hour-minute-second, same day)
-pub fn resolve_id(id: &str) -> Option<PathBuf> {
-    resolve_id_with_memo_dir(&get_memo_dir(), id)
-}
-
-/// Resolve a memo ID to a file path with custom memo directory (for testing)
-pub fn resolve_id_with_memo_dir(memo_dir: &PathBuf, id: &str) -> Option<PathBuf> {
+pub fn resolve_memo_id<P: AsRef<Path>>(memo_dir: P, id: &str) -> MemoResult<PathBuf> {
+    let memo_dir = memo_dir.as_ref();
     let now = Local::now();
 
-    // Try full path format first (2025-01/30/143022)
     if id.contains('/') {
         let path = memo_dir.join(format!("{}.md", id));
         if path.exists() {
-            return Some(path);
+            return Ok(path);
         }
     }
 
-    // Try different ID formats
     match id.len() {
         6 => {
-            // Format: HHMMSS (same day)
             let today = now.format("%Y-%m/%d").to_string();
             let path = memo_dir.join(format!("{}/{}.md", today, id));
             if path.exists() {
-                return Some(path);
+                return Ok(path);
             }
         }
         8 => {
-            // Format: DDHHMMSS (same month)
             if let Ok(day) = id[0..2].parse::<u32>() {
                 let current_month = now.format("%Y-%m").to_string();
                 let time_part = &id[2..];
                 let path = memo_dir.join(format!("{}/{:02}/{}.md", current_month, day, time_part));
                 if path.exists() {
-                    return Some(path);
+                    return Ok(path);
                 }
             }
         }
         10 => {
-            // Format: MMDDHHMMSS
             if let (Ok(month), Ok(day)) = (id[0..2].parse::<u32>(), id[2..4].parse::<u32>()) {
                 let current_year = now.format("%Y").to_string();
                 let time_part = &id[4..];
@@ -56,25 +46,27 @@ pub fn resolve_id_with_memo_dir(memo_dir: &PathBuf, id: &str) -> Option<PathBuf>
                     current_year, month, day, time_part
                 ));
                 if path.exists() {
-                    return Some(path);
+                    return Ok(path);
                 }
             }
         }
         _ => {}
     }
 
-    // If no exact match, try to find similar files
-    find_similar_files(memo_dir, id)
+    find_similar_files(memo_dir, id).ok_or_else(|| MemoError::MemoNotFound(id.to_string()))
 }
 
 /// Find files with similar IDs (fuzzy matching)
-fn find_similar_files(memo_dir: &PathBuf, id: &str) -> Option<PathBuf> {
+/// 類似ファイルを検索（.archiveディレクトリはスキップ）
+fn find_similar_files(memo_dir: &Path, id: &str) -> Option<PathBuf> {
     use std::fs;
 
-    // Walk through the directory structure to find matching files
     if let Ok(entries) = fs::read_dir(memo_dir) {
         for entry in entries.flatten() {
             if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                if entry.file_name().to_string_lossy() == ".archive" {
+                    continue;
+                }
                 if let Some(path) = search_in_month_dir(&entry.path(), id) {
                     return Some(path);
                 }
@@ -85,7 +77,7 @@ fn find_similar_files(memo_dir: &PathBuf, id: &str) -> Option<PathBuf> {
     None
 }
 
-fn search_in_month_dir(month_dir: &PathBuf, id: &str) -> Option<PathBuf> {
+fn search_in_month_dir(month_dir: &Path, id: &str) -> Option<PathBuf> {
     use std::fs;
 
     if let Ok(entries) = fs::read_dir(month_dir) {
@@ -101,7 +93,7 @@ fn search_in_month_dir(month_dir: &PathBuf, id: &str) -> Option<PathBuf> {
     None
 }
 
-fn search_in_day_dir(day_dir: &PathBuf, id: &str) -> Option<PathBuf> {
+fn search_in_day_dir(day_dir: &Path, id: &str) -> Option<PathBuf> {
     use std::fs;
 
     if let Ok(entries) = fs::read_dir(day_dir) {
@@ -124,10 +116,10 @@ fn search_in_day_dir(day_dir: &PathBuf, id: &str) -> Option<PathBuf> {
 mod tests {
     use super::*;
     use std::fs;
-    use tempfile::tempdir;
+    use tempfile::TempDir;
 
-    fn setup_test_memo_structure() -> (tempfile::TempDir, PathBuf) {
-        let temp_dir = tempdir().unwrap();
+    fn setup_test_memo_structure() -> (TempDir, PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
         let memo_dir = temp_dir.path().join("memo");
 
         // Create test directory structure
@@ -145,8 +137,8 @@ mod tests {
     fn test_resolve_full_id() {
         let (_temp_dir, memo_dir) = setup_test_memo_structure();
 
-        let result = resolve_id_with_memo_dir(&memo_dir, "2025-01/30/143022");
-        assert!(result.is_some());
+        let result = resolve_memo_id(&memo_dir, "2025-01/30/143022");
+        assert!(result.is_ok());
 
         let path = result.unwrap();
         assert!(path.exists());
@@ -157,8 +149,14 @@ mod tests {
     fn test_resolve_nonexistent_id() {
         let (_temp_dir, memo_dir) = setup_test_memo_structure();
 
-        let result = resolve_id_with_memo_dir(&memo_dir, "2025-01/30/999999");
-        assert!(result.is_none());
+        let result = resolve_memo_id(&memo_dir, "2025-01/30/999999");
+        assert!(result.is_err());
+
+        if let Err(MemoError::MemoNotFound(id)) = result {
+            assert_eq!(id, "2025-01/30/999999");
+        } else {
+            panic!("Expected MemoNotFound error");
+        }
     }
 
     #[test]
@@ -167,16 +165,16 @@ mod tests {
 
         // Test 6-digit format (HHMMSS) - this might not work without proper date setup
         // but we can test the parsing logic
-        let _result = resolve_id_with_memo_dir(&memo_dir, "143022");
-        // This may be None if the current date doesn't match our test structure
+        let _result = resolve_memo_id(&memo_dir, "143022");
+        // This may be Err if the current date doesn't match our test structure
 
         // Test 8-digit format (DDHHMMSS)
-        let _result = resolve_id_with_memo_dir(&memo_dir, "30143022");
-        // This may be None if the current month doesn't match our test structure
+        let _result = resolve_memo_id(&memo_dir, "30143022");
+        // This may be Err if the current month doesn't match our test structure
 
         // Test 10-digit format (MMDDHHMMSS)
-        let _result = resolve_id_with_memo_dir(&memo_dir, "0130143022");
-        // This may be None if the current year doesn't match our test structure
+        let _result = resolve_memo_id(&memo_dir, "0130143022");
+        // This may be Err if the current year doesn't match our test structure
     }
 
     #[test]
@@ -188,5 +186,29 @@ mod tests {
 
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("143022.md"));
+    }
+
+    #[test]
+    fn test_skip_archive_directory() {
+        let temp_dir = TempDir::new().unwrap();
+        let memo_dir = temp_dir.path().join("memo");
+
+        // Create archive directory with a file
+        let archive_dir = memo_dir.join(".archive/2025-01/30");
+        fs::create_dir_all(&archive_dir).unwrap();
+        fs::write(archive_dir.join("143022.md"), "Archived memo").unwrap();
+
+        // Create regular memo directory
+        let regular_dir = memo_dir.join("2025-01/30");
+        fs::create_dir_all(&regular_dir).unwrap();
+        fs::write(regular_dir.join("151545.md"), "Regular memo").unwrap();
+
+        // Should find the regular memo, not the archived one
+        let result = find_similar_files(&memo_dir, "151");
+        assert!(result.is_some());
+
+        let path = result.unwrap();
+        assert!(path.to_string_lossy().contains("151545.md"));
+        assert!(!path.to_string_lossy().contains(".archive"));
     }
 }

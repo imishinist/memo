@@ -1,67 +1,44 @@
+use crate::context::MemoContext;
+use crate::error::{MemoError, MemoResult};
+use crate::repository::MemoRepository;
 use chrono::Local;
-use std::path::PathBuf;
 use std::process::Command;
 
-use crate::utils::xdg::ensure_memo_dir;
-
-pub fn run() {
+pub fn run(context: &MemoContext) -> MemoResult<()> {
     let now = Local::now();
 
-    // Create directory structure: YYYY-MM/DD/
     let date_dir = now.format("%Y-%m/%d").to_string();
     let time_filename = now.format("%H%M%S.md").to_string();
+    let relative_path = format!("{}/{}", date_dir, time_filename);
 
-    // Ensure memo directory exists
-    let memo_dir = match ensure_memo_dir() {
-        Ok(dir) => dir,
-        Err(e) => {
-            eprintln!("Error creating memo directory: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let repo = MemoRepository::new(context.clone());
 
-    // Create the full path
-    let full_dir = memo_dir.join(&date_dir);
-    if let Err(e) = std::fs::create_dir_all(&full_dir) {
-        eprintln!("Error creating date directory: {}", e);
-        std::process::exit(1);
-    }
+    let memo = repo.create_memo(&relative_path, String::new())?;
 
-    let file_path = full_dir.join(&time_filename);
+    open_editor(context, &memo.path)?;
 
-    // Create empty file if it doesn't exist
-    if !file_path.exists() {
-        if let Err(e) = std::fs::write(&file_path, "") {
-            eprintln!("Error creating memo file: {}", e);
-            std::process::exit(1);
-        }
-    }
+    let id = time_filename.trim_end_matches(".md");
+    println!("Memo created: {}/{}", date_dir, id);
 
-    // Open editor
-    open_editor(&file_path);
-
-    println!(
-        "Memo created: {}/{}",
-        date_dir,
-        time_filename.trim_end_matches(".md")
-    );
+    Ok(())
 }
 
-fn open_editor(file_path: &PathBuf) {
-    let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+fn open_editor(context: &MemoContext, file_path: &std::path::Path) -> MemoResult<()> {
+    let status = Command::new(&context.editor)
+        .arg(file_path)
+        .status()
+        .map_err(|e| {
+            MemoError::EditorError(format!(
+                "Failed to launch editor '{}': {}",
+                context.editor, e
+            ))
+        })?;
 
-    let status = Command::new(&editor).arg(file_path).status();
-
-    match status {
-        Ok(exit_status) => {
-            if !exit_status.success() {
-                eprintln!("Editor exited with non-zero status");
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("Error launching editor '{}': {}", editor, e);
-            std::process::exit(1);
-        }
+    if !status.success() {
+        return Err(MemoError::EditorError(
+            "Editor exited with non-zero status".to_string(),
+        ));
     }
+
+    Ok(())
 }

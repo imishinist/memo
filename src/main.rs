@@ -1,10 +1,17 @@
 use clap::{Parser, Subcommand};
+use std::process;
 
 mod commands;
+mod context;
+mod error;
 mod frontmatter;
+mod memo;
+mod repository;
 mod utils;
 
 use commands::{add, archive, dir, edit, list};
+use context::MemoContext;
+use error::MemoError;
 
 #[derive(Parser)]
 #[command(name = "memo")]
@@ -35,11 +42,39 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Add => add::run(),
-        Commands::Edit { id } => edit::run(&id),
-        Commands::List { json } => list::run(json),
-        Commands::Dir => dir::run(),
-        Commands::Archive { targets } => archive::run(&targets),
+    // コンテキストを初期化
+    let context = match MemoContext::new() {
+        Ok(ctx) => ctx,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // メモディレクトリを確保
+    if let Err(e) = context.ensure_memo_dir() {
+        eprintln!("Error: {}", e);
+        process::exit(1);
+    }
+
+    let result = match cli.command {
+        Commands::Add => add::run(&context),
+        Commands::Edit { id } => edit::run(&context, &id),
+        Commands::List { json } => list::run(&context, json),
+        Commands::Dir => dir::run(&context),
+        Commands::Archive { targets } => archive::run(&context, &targets),
+    };
+
+    if let Err(e) = result {
+        match e {
+            MemoError::MemoNotFound(_) | MemoError::InvalidId(_) => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+            _ => {
+                eprintln!("Error: {}", e);
+                process::exit(1);
+            }
+        }
     }
 }
