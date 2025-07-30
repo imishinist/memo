@@ -21,7 +21,11 @@ enum Commands {
     /// Edit an existing memo by ID
     Edit { id: String },
     /// List all memos
-    List,
+    List {
+        /// Output in JSONL format
+        #[arg(long)]
+        json: bool,
+    },
     /// Show memo directory path
     Dir,
     /// Archive memos by ID, file path, or directory
@@ -34,7 +38,7 @@ fn main() {
     match cli.command {
         Commands::Add => add::run(),
         Commands::Edit { id } => edit::run(&id),
-        Commands::List => list::run(),
+        Commands::List { json } => list::run(json),
         Commands::Dir => dir::run(),
         Commands::Archive { targets } => archive::run(&targets),
     }

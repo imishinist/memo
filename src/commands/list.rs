@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local};
+use serde::{Serialize, Serializer};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -7,61 +8,87 @@ use std::path::PathBuf;
 use crate::frontmatter::parse_memo_content;
 use crate::utils::xdg::get_memo_dir;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct MemoFile {
     pub id: String,
+    #[serde(serialize_with = "serialize_datetime")]
     pub modified: DateTime<Local>,
     pub preview: String,
-    pub frontmatter: Option<HashMap<String, Value>>,
-    pub frontmatter_error: Option<String>,
+    pub metadata: Option<HashMap<String, Value>>,
+    pub metadata_error: Option<String>,
 }
 
-pub fn run() {
+fn serialize_datetime<S>(dt: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&dt.to_rfc3339())
+}
+
+pub fn run(json_output: bool) {
     let memo_dir = get_memo_dir();
 
     if !memo_dir.exists() {
-        println!("No memos found. Use 'memo add' to create your first memo.");
-        return;
+        if json_output {
+            return; // No output for JSON when no memos exist
+        } else {
+            println!("No memos found. Use 'memo add' to create your first memo.");
+            return;
+        }
     }
 
     let mut memos = collect_memos(&memo_dir);
 
     if memos.is_empty() {
-        println!("No memos found. Use 'memo add' to create your first memo.");
-        return;
+        if json_output {
+            return; // No output for JSON when no memos exist
+        } else {
+            println!("No memos found. Use 'memo add' to create your first memo.");
+            return;
+        }
     }
 
     // Sort by modification time (newest first)
     memos.sort_by(|a, b| b.modified.cmp(&a.modified));
 
-    println!("Recent memos:");
-    println!();
-
-    for memo in memos.iter().take(20) {
-        // Show latest 20 memos
-        println!("ID: {}", memo.id);
-        println!("Modified: {}", memo.modified.format("%Y-%m-%d %H:%M:%S"));
-
-        // Display frontmatter information if available
-        if let Some(error) = &memo.frontmatter_error {
-            println!("Metadata Error: {}", error);
-        } else if let Some(frontmatter) = &memo.frontmatter {
-            if !frontmatter.is_empty() {
-                println!("Metadata:");
-                for (key, value) in frontmatter {
-                    println!("  {}: {}", key, format_yaml_value(value));
-                }
+    if json_output {
+        // Output in JSONL format
+        for memo in memos.iter().take(20) {
+            if let Ok(json) = serde_json::to_string(memo) {
+                println!("{}", json);
             }
         }
+    } else {
+        // Original text output
+        println!("Recent memos:");
+        println!();
 
-        if !memo.preview.is_empty() {
-            println!("Preview: {}", memo.preview);
+        for memo in memos.iter().take(20) {
+            // Show latest 20 memos
+            println!("ID: {}", memo.id);
+            println!("Modified: {}", memo.modified.format("%Y-%m-%d %H:%M:%S"));
+
+            // Display metadata information if available
+            if let Some(error) = &memo.metadata_error {
+                println!("Metadata Error: {}", error);
+            } else if let Some(metadata) = &memo.metadata {
+                if !metadata.is_empty() {
+                    println!("Metadata:");
+                    for (key, value) in metadata {
+                        println!("  {}: {}", key, format_yaml_value(value));
+                    }
+                }
+            }
+
+            if !memo.preview.is_empty() {
+                println!("Preview: {}", memo.preview);
+            }
+            println!("---");
         }
-        println!("---");
-    }
 
-    if memos.len() > 20 {
-        println!("... and {} more memos", memos.len() - 20);
+        if memos.len() > 20 {
+            println!("... and {} more memos", memos.len() - 20);
+        }
     }
 }
 
@@ -131,8 +158,8 @@ fn create_memo_file(file_path: &PathBuf, memo_dir: &PathBuf) -> Option<MemoFile>
         id,
         modified,
         preview,
-        frontmatter: parsed.frontmatter,
-        frontmatter_error: parsed.frontmatter_error,
+        metadata: parsed.frontmatter,
+        metadata_error: parsed.frontmatter_error,
     })
 }
 
@@ -230,16 +257,35 @@ mod tests {
             assert_eq!(memo_file.id, "2025-01/30/143022");
             assert!(memo_file.preview.contains("Test Memo"));
 
-            // Check frontmatter
-            assert!(memo_file.frontmatter.is_some());
-            assert!(memo_file.frontmatter_error.is_none());
-            let frontmatter = memo_file.frontmatter.unwrap();
+            // Check metadata
+            assert!(memo_file.metadata.is_some());
+            assert!(memo_file.metadata_error.is_none());
+            let metadata = memo_file.metadata.unwrap();
             assert_eq!(
-                frontmatter.get("title").unwrap().as_str().unwrap(),
+                metadata.get("title").unwrap().as_str().unwrap(),
                 "Test Memo"
             );
         } else {
             panic!("Failed to create memo file");
+        }
+    }
+
+    #[test]
+    fn test_memo_file_serialization() {
+        let (_temp_dir, memo_dir) = setup_test_memos();
+        let memos = collect_memos_with_memo_dir(&memo_dir, &memo_dir);
+
+        assert!(!memos.is_empty());
+
+        // Test JSON serialization
+        for memo in &memos {
+            let json_result = serde_json::to_string(memo);
+            assert!(json_result.is_ok());
+
+            let json = json_result.unwrap();
+            assert!(json.contains(&memo.id));
+            assert!(json.contains("metadata"));
+            assert!(!json.contains("frontmatter")); // Ensure old field name is not present
         }
     }
 }
