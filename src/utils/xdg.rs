@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
 /// Get the memo data directory following XDG Base Directory specification
 pub fn get_memo_dir() -> PathBuf {
@@ -11,12 +11,12 @@ pub fn get_memo_dir_with_override(override_dir: Option<PathBuf>) -> PathBuf {
     if let Some(dir) = override_dir {
         return dir.join("memo");
     }
-    
+
     // Check XDG_DATA_HOME environment variable first
     if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
         return PathBuf::from(xdg_data_home).join("memo");
     }
-    
+
     // Fall back to dirs crate
     if let Some(data_home) = dirs::data_dir() {
         data_home.join("memo")
@@ -58,11 +58,11 @@ mod tests {
     #[test]
     fn test_ensure_memo_dir() {
         let temp_dir = tempdir().unwrap();
-        
+
         // Test with override to avoid permission issues
         let memo_dir = temp_dir.path().join("memo");
         std::fs::create_dir_all(&memo_dir).unwrap();
-        
+
         assert!(memo_dir.exists());
         assert!(memo_dir.is_dir());
     }

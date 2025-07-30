@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 mod commands;
 mod utils;
 
-use commands::{add, dir, edit, list};
+use commands::{add, archive, dir, edit, list};
 
 #[derive(Parser)]
 #[command(name = "memo")]
@@ -23,6 +23,8 @@ enum Commands {
     List,
     /// Show memo directory path
     Dir,
+    /// Archive memos by ID, file path, or directory
+    Archive { targets: Vec<String> },
 }
 
 fn main() {
@@ -33,5 +35,6 @@ fn main() {
         Commands::Edit { id } => edit::run(&id),
         Commands::List => list::run(),
         Commands::Dir => dir::run(),
+        Commands::Archive { targets } => archive::run(&targets),
     }
 }
