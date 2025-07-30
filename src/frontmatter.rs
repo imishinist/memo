@@ -5,15 +5,17 @@ use std::collections::HashMap;
 pub struct MemoContent {
     pub frontmatter: Option<HashMap<String, Value>>,
     pub content: String,
+    pub frontmatter_error: Option<String>,
 }
 
-pub fn parse_memo_content(content: &str) -> Result<MemoContent, Box<dyn std::error::Error>> {
+pub fn parse_memo_content(content: &str) -> MemoContent {
     // Check if content starts with frontmatter delimiter
     if !content.starts_with("---\n") {
-        return Ok(MemoContent {
+        return MemoContent {
             frontmatter: None,
             content: content.to_string(),
-        });
+            frontmatter_error: None,
+        };
     }
 
     // Find the closing delimiter
@@ -25,29 +27,35 @@ pub fn parse_memo_content(content: &str) -> Result<MemoContent, Box<dyn std::err
         let remaining_content = &content_after_first_delimiter[end_pos + 5..]; // Skip "\n---\n"
 
         // Parse YAML frontmatter
-        let frontmatter: HashMap<String, Value> = if yaml_content.trim().is_empty() {
-            HashMap::new()
+        let (frontmatter, error) = if yaml_content.trim().is_empty() {
+            (Some(HashMap::new()), None)
         } else {
-            serde_yaml::from_str(yaml_content)?
+            match serde_yaml::from_str::<HashMap<String, Value>>(yaml_content) {
+                Ok(fm) => (Some(fm), None),
+                Err(e) => (None, Some(format!("YAML parse error: {}", e))),
+            }
         };
 
-        Ok(MemoContent {
-            frontmatter: Some(frontmatter),
+        MemoContent {
+            frontmatter,
             content: remaining_content.to_string(),
-        })
+            frontmatter_error: error,
+        }
     } else if content_after_first_delimiter.starts_with("---\n") {
         // Handle case where frontmatter is empty: ---\n---\n
         let remaining_content = &content_after_first_delimiter[4..]; // Skip "---\n"
-        Ok(MemoContent {
+        MemoContent {
             frontmatter: Some(HashMap::new()),
             content: remaining_content.to_string(),
-        })
+            frontmatter_error: None,
+        }
     } else {
         // No closing delimiter found, treat as regular content
-        Ok(MemoContent {
+        MemoContent {
             frontmatter: None,
             content: content.to_string(),
-        })
+            frontmatter_error: None,
+        }
     }
 }
 
@@ -75,6 +83,7 @@ mod tests {
         let memo = MemoContent {
             frontmatter: Some(frontmatter),
             content: "Content here".to_string(),
+            frontmatter_error: None,
         };
 
         let formatted = format_memo_content(&memo);
@@ -88,6 +97,7 @@ mod tests {
         let memo = MemoContent {
             frontmatter: None,
             content: "Just content".to_string(),
+            frontmatter_error: None,
         };
 
         let formatted = format_memo_content(&memo);

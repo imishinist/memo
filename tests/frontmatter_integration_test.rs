@@ -15,11 +15,13 @@ This is the memo content.
 Some more content here."#;
 
     // Parse the content multiple times to verify consistency
-    let parsed1 = parse_memo_content(original_content).unwrap();
-    let parsed2 = parse_memo_content(original_content).unwrap();
+    let parsed1 = parse_memo_content(original_content);
+    let parsed2 = parse_memo_content(original_content);
 
     assert!(parsed1.frontmatter.is_some());
+    assert!(parsed1.frontmatter_error.is_none());
     assert!(parsed2.frontmatter.is_some());
+    assert!(parsed2.frontmatter_error.is_none());
     assert_eq!(parsed1.content.trim(), parsed2.content.trim());
 
     let frontmatter = parsed1.frontmatter.unwrap();
@@ -47,9 +49,10 @@ This is a test memo saved to file."#;
 
     // Read and parse the file
     let file_content = fs::read_to_string(&memo_file).unwrap();
-    let parsed = parse_memo_content(&file_content).unwrap();
+    let parsed = parse_memo_content(&file_content);
 
     assert!(parsed.frontmatter.is_some());
+    assert!(parsed.frontmatter_error.is_none());
     let frontmatter = parsed.frontmatter.unwrap();
     assert_eq!(
         frontmatter.get("title").unwrap().as_str().unwrap(),
@@ -76,8 +79,9 @@ Just plain text content.";
 
     // Read and parse the file
     let file_content = fs::read_to_string(&memo_file).unwrap();
-    let parsed = parse_memo_content(&file_content).unwrap();
+    let parsed = parse_memo_content(&file_content);
 
     assert!(parsed.frontmatter.is_none());
+    assert!(parsed.frontmatter_error.is_none());
     assert_eq!(parsed.content, simple_content);
 }

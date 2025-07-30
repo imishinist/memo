@@ -14,9 +14,10 @@ This is the memo content.
 
 Some more content here."#;
 
-    let result = parse_memo_content(content).unwrap();
+    let result = parse_memo_content(content);
 
     assert!(result.frontmatter.is_some());
+    assert!(result.frontmatter_error.is_none());
     let frontmatter = result.frontmatter.unwrap();
 
     assert_eq!(
@@ -52,9 +53,10 @@ fn test_parse_memo_without_frontmatter() {
 
 Just plain text content."#;
 
-    let result = parse_memo_content(content).unwrap();
+    let result = parse_memo_content(content);
 
     assert!(result.frontmatter.is_none());
+    assert!(result.frontmatter_error.is_none());
     assert_eq!(result.content, content);
 }
 
@@ -65,9 +67,10 @@ fn test_parse_memo_with_empty_frontmatter() {
 
 This memo has empty frontmatter."#;
 
-    let result = parse_memo_content(content).unwrap();
+    let result = parse_memo_content(content);
 
     assert!(result.frontmatter.is_some());
+    assert!(result.frontmatter_error.is_none());
     let frontmatter = result.frontmatter.unwrap();
     assert!(frontmatter.is_empty());
     assert_eq!(result.content.trim(), "This memo has empty frontmatter.");
@@ -83,7 +86,8 @@ invalid: [unclosed array
 This memo has invalid YAML."#;
 
     let result = parse_memo_content(content);
-    assert!(result.is_err());
+    assert!(result.frontmatter_error.is_some());
+    assert!(result.frontmatter.is_none());
 }
 
 #[test]
@@ -99,9 +103,10 @@ nested:
 
 Memo with arbitrary fields."#;
 
-    let result = parse_memo_content(content).unwrap();
+    let result = parse_memo_content(content);
 
     assert!(result.frontmatter.is_some());
+    assert!(result.frontmatter_error.is_none());
     let frontmatter = result.frontmatter.unwrap();
 
     assert_eq!(
@@ -143,8 +148,9 @@ title: This should not be parsed as frontmatter
 
 More content."#;
 
-    let result = parse_memo_content(content).unwrap();
+    let result = parse_memo_content(content);
 
     assert!(result.frontmatter.is_none());
+    assert!(result.frontmatter_error.is_none());
     assert_eq!(result.content, content);
 }

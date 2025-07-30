@@ -13,6 +13,7 @@ pub struct MemoFile {
     pub modified: DateTime<Local>,
     pub preview: String,
     pub frontmatter: Option<HashMap<String, Value>>,
+    pub frontmatter_error: Option<String>,
 }
 
 pub fn run() {
@@ -42,7 +43,9 @@ pub fn run() {
         println!("Modified: {}", memo.modified.format("%Y-%m-%d %H:%M:%S"));
 
         // Display frontmatter information if available
-        if let Some(frontmatter) = &memo.frontmatter {
+        if let Some(error) = &memo.frontmatter_error {
+            println!("Metadata Error: {}", error);
+        } else if let Some(frontmatter) = &memo.frontmatter {
             if !frontmatter.is_empty() {
                 println!("Metadata:");
                 for (key, value) in frontmatter {
@@ -119,7 +122,7 @@ fn create_memo_file(file_path: &PathBuf, memo_dir: &PathBuf) -> Option<MemoFile>
 
     // Read file content and parse frontmatter
     let content = fs::read_to_string(file_path).ok()?;
-    let parsed = parse_memo_content(&content).ok()?;
+    let parsed = parse_memo_content(&content);
 
     // Get preview from the main content (not frontmatter)
     let preview = get_preview_from_content(&parsed.content);
@@ -129,6 +132,7 @@ fn create_memo_file(file_path: &PathBuf, memo_dir: &PathBuf) -> Option<MemoFile>
         modified,
         preview,
         frontmatter: parsed.frontmatter,
+        frontmatter_error: parsed.frontmatter_error,
     })
 }
 
@@ -228,6 +232,7 @@ mod tests {
 
             // Check frontmatter
             assert!(memo_file.frontmatter.is_some());
+            assert!(memo_file.frontmatter_error.is_none());
             let frontmatter = memo_file.frontmatter.unwrap();
             assert_eq!(
                 frontmatter.get("title").unwrap().as_str().unwrap(),
