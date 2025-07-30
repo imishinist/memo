@@ -12,7 +12,7 @@ mod search;
 mod utils;
 
 use commands::search as search_cmd;
-use commands::{add, archive, dir, edit, index, list};
+use commands::{add, archive, dir, edit, index, list, show};
 use context::{Context, MemoContext};
 use error::MemoError;
 
@@ -30,6 +30,8 @@ enum Commands {
     Add,
     /// Edit an existing memo by ID
     Edit { id: String },
+    /// Show memo content by ID
+    Show { id: String },
     /// List all memos
     List {
         /// Output in JSONL format
@@ -70,6 +72,7 @@ fn main() {
     let result = match cli.command {
         Commands::Add => add::run(&memo_context),
         Commands::Edit { id } => edit::run(&memo_context, &id),
+        Commands::Show { id } => show::run(&memo_context, &id),
         Commands::List { json } => list::run(&memo_context, json),
         Commands::Dir => dir::run(&memo_context),
         Commands::Archive { targets } => archive::run(&memo_context, &targets),

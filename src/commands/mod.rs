@@ -5,3 +5,4 @@ pub mod edit;
 pub mod index;
 pub mod list;
 pub mod search;
+pub mod show;
