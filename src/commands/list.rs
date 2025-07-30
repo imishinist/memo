@@ -13,6 +13,8 @@ pub struct MemoListItem {
     #[serde(serialize_with = "serialize_datetime")]
     pub modified: DateTime<Local>,
     pub preview: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
     pub metadata: Option<HashMap<String, Value>>,
     pub metadata_error: Option<String>,
 }
@@ -38,6 +40,7 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
                 id: memo.id.clone(),
                 modified: memo.modified,
                 preview: memo.preview(100),
+                content: Some(memo.content.clone()), // JSON出力時は全文を含める
                 metadata: memo.frontmatter.clone(),
                 metadata_error: memo.frontmatter_error.clone(),
             };
