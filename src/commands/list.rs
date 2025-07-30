@@ -116,8 +116,9 @@ fn get_preview(file_path: &PathBuf) -> String {
     if let Ok(content) = fs::read_to_string(file_path) {
         let lines: Vec<&str> = content.lines().take(3).collect();
         let preview = lines.join(" ");
-        if preview.len() > 100 {
-            format!("{}...", &preview[..97])
+        if preview.chars().count() > 100 {
+            let truncated: String = preview.chars().take(97).collect();
+            format!("{}...", truncated)
         } else {
             preview
         }
