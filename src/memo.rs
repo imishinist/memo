@@ -99,10 +99,49 @@ impl MemoFile {
 
     pub fn preview(&self, max_length: usize) -> String {
         let content = self.content.trim();
-        if content.len() <= max_length {
+        if content.chars().count() <= max_length {
             content.to_string()
         } else {
-            format!("{}...", &content[..max_length])
+            let truncated: String = content.chars().take(max_length).collect();
+            format!("{}...", truncated)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_preview_with_japanese_text() {
+        let memo = MemoFile {
+            path: std::path::PathBuf::from("test.md"),
+            id: "test".to_string(),
+            content: "これは日本語のテストです。長いテキストをテストします。".to_string(),
+            frontmatter: None,
+            frontmatter_error: None,
+        };
+
+        let preview = memo.preview(10);
+        assert_eq!(preview, "これは日本語のテスト...");
+
+        // 文字数が正確にカウントされることを確認
+        let preview_chars: Vec<char> = preview.chars().collect();
+        let expected_chars = 10 + 3; // 10文字 + "..."
+        assert_eq!(preview_chars.len(), expected_chars);
+    }
+
+    #[test]
+    fn test_preview_short_japanese_text() {
+        let memo = MemoFile {
+            path: std::path::PathBuf::from("test.md"),
+            id: "test".to_string(),
+            content: "短いテスト".to_string(),
+            frontmatter: None,
+            frontmatter_error: None,
+        };
+
+        let preview = memo.preview(10);
+        assert_eq!(preview, "短いテスト");
     }
 }
