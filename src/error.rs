@@ -10,6 +10,7 @@ pub enum MemoError {
     EditorError(String),
     ArchiveError(String),
     Search(String),
+    Tokenizer(String),
 }
 
 impl fmt::Display for MemoError {
@@ -23,6 +24,7 @@ impl fmt::Display for MemoError {
             MemoError::EditorError(msg) => write!(f, "Editor error: {}", msg),
             MemoError::ArchiveError(msg) => write!(f, "Archive error: {}", msg),
             MemoError::Search(msg) => write!(f, "Search error: {}", msg),
+            MemoError::Tokenizer(msg) => write!(f, "Tokenizer error: {}", msg),
         }
     }
 }

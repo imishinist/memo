@@ -27,6 +27,7 @@ impl IndexLock {
     }
 
     /// ロックを試行（非ブロッキング）
+    #[allow(dead_code)]
     pub fn try_acquire<P: AsRef<Path>>(index_dir: P) -> Result<Option<Self>, MemoError> {
         let lock_path = index_dir.as_ref().join("lock");
 

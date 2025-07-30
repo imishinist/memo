@@ -57,9 +57,13 @@ impl SearchIndex {
         let index = Index::create_in_dir(&index_dir, schema)?;
 
         // 日本語トークナイザーを登録
-        index
-            .tokenizers()
-            .register("lang_ja", JapaneseTokenizer::new());
+        let japanese_tokenizer = JapaneseTokenizer::new();
+        if !japanese_tokenizer.is_available() {
+            eprintln!(
+                "Warning: Japanese tokenizer is not available. Falling back to simple tokenization."
+            );
+        }
+        index.tokenizers().register("lang_ja", japanese_tokenizer);
 
         let writer = index.writer(50_000_000)?;
 
@@ -85,9 +89,13 @@ impl SearchIndex {
         let index = Index::open_in_dir(&index_dir)?;
 
         // 日本語トークナイザーを登録
-        index
-            .tokenizers()
-            .register("lang_ja", JapaneseTokenizer::new());
+        let japanese_tokenizer = JapaneseTokenizer::new();
+        if !japanese_tokenizer.is_available() {
+            eprintln!(
+                "Warning: Japanese tokenizer is not available. Falling back to simple tokenization."
+            );
+        }
+        index.tokenizers().register("lang_ja", japanese_tokenizer);
 
         let schema = index.schema();
 
@@ -208,11 +216,11 @@ impl SearchIndex {
             let created_at = retrieved_doc
                 .get_first(self.created_at_field)
                 .and_then(|v| v.as_datetime())
-                .map(|dt| {
-                    chrono::DateTime::from_timestamp(dt.into_timestamp_secs(), 0)
-                        .unwrap_or_default()
-                })
-                .unwrap_or_default();
+                .and_then(|dt| chrono::DateTime::from_timestamp(dt.into_timestamp_secs(), 0))
+                .unwrap_or_else(|| {
+                    // デフォルトとしてUnixエポック時刻を使用
+                    chrono::DateTime::from_timestamp(0, 0).expect("Unix epoch should be valid")
+                });
 
             // frontmatterを復元（簡略化）
             let mut frontmatter = None;
