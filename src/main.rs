@@ -7,10 +7,12 @@ mod error;
 mod frontmatter;
 mod memo;
 mod repository;
+mod search;
 mod utils;
 
-use commands::{add, archive, dir, edit, list};
-use context::MemoContext;
+use commands::{add, archive, dir, edit, index, list};
+use commands::search as search_cmd;
+use context::{Context, MemoContext};
 use error::MemoError;
 
 #[derive(Parser)]
@@ -37,13 +39,17 @@ enum Commands {
     Dir,
     /// Archive memos by ID, file path, or directory
     Archive { targets: Vec<String> },
+    /// Build search index
+    Index,
+    /// Search memos
+    Search { query: String },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     // コンテキストを初期化
-    let context = match MemoContext::new() {
+    let memo_context = match MemoContext::new() {
         Ok(ctx) => ctx,
         Err(e) => {
             eprintln!("Error: {}", e);
@@ -52,17 +58,22 @@ fn main() {
     };
 
     // メモディレクトリを確保
-    if let Err(e) = context.ensure_memo_dir() {
+    if let Err(e) = memo_context.ensure_memo_dir() {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
 
+    // 検索機能用のContextを作成
+    let context = Context::from_memo_context(&memo_context);
+
     let result = match cli.command {
-        Commands::Add => add::run(&context),
-        Commands::Edit { id } => edit::run(&context, &id),
-        Commands::List { json } => list::run(&context, json),
-        Commands::Dir => dir::run(&context),
-        Commands::Archive { targets } => archive::run(&context, &targets),
+        Commands::Add => add::run(&memo_context),
+        Commands::Edit { id } => edit::run(&memo_context, &id),
+        Commands::List { json } => list::run(&memo_context, json),
+        Commands::Dir => dir::run(&memo_context),
+        Commands::Archive { targets } => archive::run(&memo_context, &targets),
+        Commands::Index => index::run_index(&context),
+        Commands::Search { query } => search_cmd::run_search(&context, &query),
     };
 
     if let Err(e) = result {

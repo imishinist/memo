@@ -4,6 +4,7 @@ pub mod error;
 pub mod frontmatter;
 pub mod memo;
 pub mod repository;
+pub mod search;
 pub mod utils;
 
 pub use commands::*;
@@ -12,4 +13,6 @@ pub use error::*;
 pub use frontmatter::*;
 pub use memo::*;
 pub use repository::*;
+// search::indexとcommands::indexの競合を避けるため、searchは個別にimport
+pub use search::{SearchManager, SearchResult, IndexLock};
 pub use utils::*;

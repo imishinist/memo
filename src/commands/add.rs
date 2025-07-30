@@ -1,6 +1,8 @@
 use crate::context::MemoContext;
 use crate::error::{MemoError, MemoResult};
 use crate::repository::MemoRepository;
+use crate::search::SearchManager;
+use crate::memo::MemoDocument;
 use chrono::Local;
 use std::process::Command;
 
@@ -17,9 +19,31 @@ pub fn run(context: &MemoContext) -> MemoResult<()> {
 
     open_editor(context, &memo.path)?;
 
+    // インデックスを更新
+    update_search_index(context, &memo.path)?;
+
     let id = time_filename.trim_end_matches(".md");
     println!("Memo created: {}/{}", date_dir, id);
 
+    Ok(())
+}
+
+fn update_search_index(context: &MemoContext, memo_path: &std::path::Path) -> MemoResult<()> {
+    // data_dirを取得（memo_dirの親ディレクトリ）
+    let data_dir = context.memo_dir.parent()
+        .unwrap_or(&context.memo_dir)
+        .to_path_buf();
+    
+    let search_manager = SearchManager::new(data_dir);
+    
+    // メモファイルを読み込んでMemoDocumentに変換
+    if let Ok(memo_file) = crate::memo::MemoFile::from_path(memo_path) {
+        let memo_doc = MemoDocument::from_memo_file(&memo_file);
+        
+        // インデックスに追加（エラーは無視）
+        let _ = search_manager.add_memo(&memo_doc);
+    }
+    
     Ok(())
 }
 

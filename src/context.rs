@@ -39,3 +39,20 @@ impl Default for MemoContext {
         Self::new().expect("Failed to create default MemoContext")
     }
 }
+
+/// 検索機能用のコンテキスト
+#[derive(Debug, Clone)]
+pub struct Context {
+    pub data_dir: PathBuf,
+}
+
+impl Context {
+    pub fn from_memo_context(memo_context: &MemoContext) -> Self {
+        // memo_dirの親ディレクトリがdata_dir
+        let data_dir = memo_context.memo_dir.parent()
+            .unwrap_or(&memo_context.memo_dir)
+            .to_path_buf();
+        
+        Self { data_dir }
+    }
+}

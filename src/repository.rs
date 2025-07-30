@@ -1,9 +1,9 @@
 use crate::context::MemoContext;
 use crate::error::{MemoError, MemoResult};
-use crate::memo::MemoFile;
+use crate::memo::{MemoFile, MemoDocument};
 use crate::utils::id_resolver::resolve_memo_id;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// メモリポジトリを管理する構造体
 pub struct MemoRepository {
@@ -13,6 +13,16 @@ pub struct MemoRepository {
 impl MemoRepository {
     pub fn new(context: MemoContext) -> Self {
         MemoRepository { context }
+    }
+
+    /// data_dirからMemoRepositoryを作成
+    pub fn from_data_dir(data_dir: PathBuf) -> Self {
+        let memo_dir = data_dir.join("memo");
+        let context = MemoContext {
+            memo_dir,
+            editor: std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string()),
+        };
+        Self::new(context)
     }
 
     pub fn memo_dir(&self) -> &Path {
@@ -27,6 +37,12 @@ impl MemoRepository {
         memos.sort_by(|a, b| b.path.cmp(&a.path));
 
         Ok(memos)
+    }
+
+    /// 検索機能用：全メモをMemoDocumentとして取得
+    pub fn list_all_memo_documents(&self) -> MemoResult<Vec<MemoDocument>> {
+        let memo_files = self.list_all_memos()?;
+        Ok(memo_files.iter().map(MemoDocument::from_memo_file).collect())
     }
 
     pub fn list_recent_memos(&self, limit: usize) -> MemoResult<Vec<MemoFile>> {
