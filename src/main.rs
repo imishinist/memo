@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod frontmatter;
 mod utils;
 
 use commands::{add, archive, dir, edit, list};

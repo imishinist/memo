@@ -1,7 +1,10 @@
 use chrono::{DateTime, Local};
+use serde_yaml::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::frontmatter::parse_memo_content;
 use crate::utils::xdg::get_memo_dir;
 
 #[derive(Debug)]
@@ -9,6 +12,7 @@ pub struct MemoFile {
     pub id: String,
     pub modified: DateTime<Local>,
     pub preview: String,
+    pub frontmatter: Option<HashMap<String, Value>>,
 }
 
 pub fn run() {
@@ -36,6 +40,17 @@ pub fn run() {
         // Show latest 20 memos
         println!("ID: {}", memo.id);
         println!("Modified: {}", memo.modified.format("%Y-%m-%d %H:%M:%S"));
+
+        // Display frontmatter information if available
+        if let Some(frontmatter) = &memo.frontmatter {
+            if !frontmatter.is_empty() {
+                println!("Metadata:");
+                for (key, value) in frontmatter {
+                    println!("  {}: {}", key, format_yaml_value(value));
+                }
+            }
+        }
+
         if !memo.preview.is_empty() {
             println!("Preview: {}", memo.preview);
         }
@@ -102,28 +117,44 @@ fn create_memo_file(file_path: &PathBuf, memo_dir: &PathBuf) -> Option<MemoFile>
     let metadata = fs::metadata(file_path).ok()?;
     let modified = DateTime::from(metadata.modified().ok()?);
 
-    // Get preview (first few lines)
-    let preview = get_preview(file_path);
+    // Read file content and parse frontmatter
+    let content = fs::read_to_string(file_path).ok()?;
+    let parsed = parse_memo_content(&content).ok()?;
+
+    // Get preview from the main content (not frontmatter)
+    let preview = get_preview_from_content(&parsed.content);
 
     Some(MemoFile {
         id,
         modified,
         preview,
+        frontmatter: parsed.frontmatter,
     })
 }
 
-fn get_preview(file_path: &PathBuf) -> String {
-    if let Ok(content) = fs::read_to_string(file_path) {
-        let lines: Vec<&str> = content.lines().take(3).collect();
-        let preview = lines.join(" ");
-        if preview.chars().count() > 100 {
-            let truncated: String = preview.chars().take(97).collect();
-            format!("{}...", truncated)
-        } else {
-            preview
-        }
+fn get_preview_from_content(content: &str) -> String {
+    let lines: Vec<&str> = content.lines().take(3).collect();
+    let preview = lines.join(" ");
+    if preview.chars().count() > 100 {
+        let truncated: String = preview.chars().take(97).collect();
+        format!("{}...", truncated)
     } else {
-        String::new()
+        preview
+    }
+}
+
+fn format_yaml_value(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Sequence(seq) => {
+            let items: Vec<String> = seq.iter().map(format_yaml_value).collect();
+            format!("[{}]", items.join(", "))
+        }
+        Value::Mapping(_) => "[object]".to_string(),
+        Value::Null => "null".to_string(),
+        _ => "unknown".to_string(),
     }
 }
 
@@ -143,7 +174,7 @@ mod tests {
         // Create test memo files
         fs::write(
             test_date_dir.join("143022.md"),
-            "# Test Memo\n\nThis is a test memo with @tag1 @meeting",
+            "---\ntitle: Test Memo\ntags: [\"@tag1\", \"@meeting\"]\n---\n\n# Test Memo\n\nThis is a test memo with @tag1 @meeting",
         )
         .unwrap();
         fs::write(
@@ -169,30 +200,17 @@ mod tests {
     }
 
     #[test]
-    fn test_get_preview() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.md");
-
-        fs::write(
-            &test_file,
-            "# Title\n\nFirst line\nSecond line\nThird line\nFourth line",
-        )
-        .unwrap();
-
-        let preview = get_preview(&test_file);
+    fn test_get_preview_from_content() {
+        let content = "# Title\n\nFirst line\nSecond line\nThird line\nFourth line";
+        let preview = get_preview_from_content(content);
         // The preview takes first 3 lines: "# Title", "", "First line"
         assert_eq!(preview, "# Title  First line");
     }
 
     #[test]
-    fn test_get_preview_long_content() {
-        let temp_dir = tempdir().unwrap();
-        let test_file = temp_dir.path().join("test.md");
-
+    fn test_get_preview_from_content_long() {
         let long_content = "a".repeat(150);
-        fs::write(&test_file, &long_content).unwrap();
-
-        let preview = get_preview(&test_file);
+        let preview = get_preview_from_content(&long_content);
         assert!(preview.ends_with("..."));
         assert!(preview.len() <= 100);
     }
@@ -207,6 +225,14 @@ mod tests {
         if let Some(memo_file) = create_memo_file(&test_file, &memo_dir) {
             assert_eq!(memo_file.id, "2025-01/30/143022");
             assert!(memo_file.preview.contains("Test Memo"));
+
+            // Check frontmatter
+            assert!(memo_file.frontmatter.is_some());
+            let frontmatter = memo_file.frontmatter.unwrap();
+            assert_eq!(
+                frontmatter.get("title").unwrap().as_str().unwrap(),
+                "Test Memo"
+            );
         } else {
             panic!("Failed to create memo file");
         }
