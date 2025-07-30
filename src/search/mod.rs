@@ -1,4 +1,5 @@
 pub mod index;
+pub mod japanese_tokenizer;
 pub mod lock;
 
 pub use index::SearchIndex;
@@ -49,16 +50,14 @@ impl SearchManager {
     pub fn create_new_index(&self) -> Result<SearchIndex, MemoError> {
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
         let index_dir = self.data_dir.join(".index").join(&timestamp);
-        
-        std::fs::create_dir_all(&index_dir)
-            .map_err(|e| MemoError::Io(e))?;
+
+        std::fs::create_dir_all(&index_dir).map_err(|e| MemoError::Io(e))?;
 
         let index = SearchIndex::create(index_dir.clone())?;
 
         // バージョンファイルを更新
         let version_file = self.data_dir.join(".indexversion");
-        std::fs::write(&version_file, &timestamp)
-            .map_err(|e| MemoError::Io(e))?;
+        std::fs::write(&version_file, &timestamp).map_err(|e| MemoError::Io(e))?;
 
         Ok(index)
     }

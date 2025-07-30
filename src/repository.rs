@@ -1,6 +1,6 @@
 use crate::context::MemoContext;
 use crate::error::{MemoError, MemoResult};
-use crate::memo::{MemoFile, MemoDocument};
+use crate::memo::{MemoDocument, MemoFile};
 use crate::utils::id_resolver::resolve_memo_id;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -42,7 +42,10 @@ impl MemoRepository {
     /// 検索機能用：全メモをMemoDocumentとして取得
     pub fn list_all_memo_documents(&self) -> MemoResult<Vec<MemoDocument>> {
         let memo_files = self.list_all_memos()?;
-        Ok(memo_files.iter().map(MemoDocument::from_memo_file).collect())
+        Ok(memo_files
+            .iter()
+            .map(MemoDocument::from_memo_file)
+            .collect())
     }
 
     pub fn list_recent_memos(&self, limit: usize) -> MemoResult<Vec<MemoFile>> {

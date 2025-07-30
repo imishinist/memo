@@ -49,10 +49,12 @@ pub struct Context {
 impl Context {
     pub fn from_memo_context(memo_context: &MemoContext) -> Self {
         // memo_dirの親ディレクトリがdata_dir
-        let data_dir = memo_context.memo_dir.parent()
+        let data_dir = memo_context
+            .memo_dir
+            .parent()
             .unwrap_or(&memo_context.memo_dir)
             .to_path_buf();
-        
+
         Self { data_dir }
     }
 }

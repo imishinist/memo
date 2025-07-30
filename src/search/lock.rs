@@ -13,14 +13,12 @@ impl IndexLock {
     /// ロックを取得
     pub fn acquire<P: AsRef<Path>>(index_dir: P) -> Result<Self, MemoError> {
         let lock_path = index_dir.as_ref().join("lock");
-        
+
         // ロックファイルを作成または開く
-        let file = File::create(&lock_path)
-            .map_err(|e| MemoError::Io(e))?;
+        let file = File::create(&lock_path).map_err(|e| MemoError::Io(e))?;
 
         // 排他ロックを取得（ブロッキング）
-        file.lock_exclusive()
-            .map_err(|e| MemoError::Io(e))?;
+        file.lock_exclusive().map_err(|e| MemoError::Io(e))?;
 
         Ok(Self {
             _file: file,
@@ -31,9 +29,8 @@ impl IndexLock {
     /// ロックを試行（非ブロッキング）
     pub fn try_acquire<P: AsRef<Path>>(index_dir: P) -> Result<Option<Self>, MemoError> {
         let lock_path = index_dir.as_ref().join("lock");
-        
-        let file = File::create(&lock_path)
-            .map_err(|e| MemoError::Io(e))?;
+
+        let file = File::create(&lock_path).map_err(|e| MemoError::Io(e))?;
 
         match file.try_lock_exclusive() {
             Ok(()) => Ok(Some(Self {

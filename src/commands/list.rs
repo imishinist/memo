@@ -1,4 +1,5 @@
 use crate::context::MemoContext;
+use crate::display::MemoDisplayFormatter;
 use crate::error::MemoResult;
 use crate::repository::MemoRepository;
 use chrono::{DateTime, Local};
@@ -27,18 +28,15 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
     let repo = MemoRepository::new(context.clone());
     let memos = repo.list_recent_memos(20)?;
 
-    if memos.is_empty() {
-        if !json_output {
-            println!("No memos found. Use 'memo add' to create your first memo.");
-        }
-        return Ok(());
-    }
-
     if json_output {
+        if memos.is_empty() {
+            return Ok(());
+        }
+
         for memo in &memos {
             let list_item = MemoListItem {
                 id: memo.id.clone(),
-                modified: get_modified_time(&memo.path)?,
+                modified: memo.modified,
                 preview: memo.preview(100),
                 metadata: memo.frontmatter.clone(),
                 metadata_error: memo.frontmatter_error.clone(),
@@ -49,33 +47,8 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
             }
         }
     } else {
-        println!("Recent memos:");
-        println!();
-
-        for memo in &memos {
-            println!("ID: {}", memo.id);
-
-            let modified = get_modified_time(&memo.path)?;
-            println!("Modified: {}", modified.format("%Y-%m-%d %H:%M:%S"));
-
-            // Display metadata information if available
-            if let Some(error) = &memo.frontmatter_error {
-                println!("Metadata Error: {}", error);
-            } else if let Some(metadata) = &memo.frontmatter {
-                if !metadata.is_empty() {
-                    println!("Metadata:");
-                    for (key, value) in metadata {
-                        println!("  {}: {}", key, format_yaml_value(value));
-                    }
-                }
-            }
-
-            let preview = memo.preview(100);
-            if !preview.is_empty() {
-                println!("Preview: {}", preview);
-            }
-            println!("---");
-        }
+        // 共通の表示機能を使用
+        MemoDisplayFormatter::display_memo_list(&memos, "Recent memos", None);
 
         if memos.len() == 20 {
             let total_count = repo.list_all_memos()?.len();
@@ -86,27 +59,6 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
     }
 
     Ok(())
-}
-
-fn get_modified_time(path: &std::path::Path) -> MemoResult<DateTime<Local>> {
-    let metadata = std::fs::metadata(path)?;
-    let modified = metadata.modified()?;
-    Ok(DateTime::from(modified))
-}
-
-fn format_yaml_value(value: &Value) -> String {
-    match value {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        Value::Sequence(seq) => {
-            let items: Vec<String> = seq.iter().map(format_yaml_value).collect();
-            format!("[{}]", items.join(", "))
-        }
-        Value::Mapping(_) => "[object]".to_string(),
-        Value::Null => "null".to_string(),
-        _ => "unknown".to_string(),
-    }
 }
 
 #[cfg(test)]

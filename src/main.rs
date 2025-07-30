@@ -3,6 +3,7 @@ use std::process;
 
 mod commands;
 mod context;
+mod display;
 mod error;
 mod frontmatter;
 mod memo;
@@ -10,8 +11,8 @@ mod repository;
 mod search;
 mod utils;
 
-use commands::{add, archive, dir, edit, index, list};
 use commands::search as search_cmd;
+use commands::{add, archive, dir, edit, index, list};
 use context::{Context, MemoContext};
 use error::MemoError;
 

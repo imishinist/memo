@@ -1,5 +1,6 @@
 use crate::error::{MemoError, MemoResult};
 use crate::frontmatter::parse_memo_content;
+use chrono::{DateTime, Local};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -18,8 +19,8 @@ impl MemoDocument {
     /// MemoFileからMemoDocumentに変換
     pub fn from_memo_file(memo_file: &MemoFile) -> Self {
         // ファイルの作成日時を取得（ファイル名から推測）
-        let created_at = Self::extract_datetime_from_path(&memo_file.path)
-            .unwrap_or_else(|| chrono::Utc::now());
+        let created_at =
+            Self::extract_datetime_from_path(&memo_file.path).unwrap_or_else(|| chrono::Utc::now());
 
         // frontmatterをHashMapからserde_json::Valueに変換
         let frontmatter = memo_file.frontmatter.as_ref().map(|fm| {
@@ -49,13 +50,11 @@ impl MemoDocument {
             let day = &components[1];
             let year_month = &components[2];
 
-            let stem = Path::new(filename.as_ref())
-                .file_stem()?
-                .to_string_lossy();
+            let stem = Path::new(filename.as_ref()).file_stem()?.to_string_lossy();
 
             // YYYY-MM/DD/HHMMSS の形式をパース
             let datetime_str = format!("{}/{}/{}", year_month, day, stem);
-            
+
             // 2025-01/30/143022 -> 2025-01-30 14:30:22
             let parts: Vec<&str> = datetime_str.split('/').collect();
             if parts.len() == 3 {
@@ -68,11 +67,15 @@ impl MemoDocument {
                     let minute = &time[2..4];
                     let second = &time[4..6];
 
-                    let full_datetime = format!("{}-{} {}:{}:{}", year_month, day, hour, minute, second);
-                    
-                    return chrono::NaiveDateTime::parse_from_str(&full_datetime, "%Y-%m-%d %H:%M:%S")
-                        .ok()
-                        .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, chrono::Utc));
+                    let full_datetime =
+                        format!("{}-{} {}:{}:{}", year_month, day, hour, minute, second);
+
+                    return chrono::NaiveDateTime::parse_from_str(
+                        &full_datetime,
+                        "%Y-%m-%d %H:%M:%S",
+                    )
+                    .ok()
+                    .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, chrono::Utc));
                 }
             }
         }
@@ -132,6 +135,7 @@ pub struct MemoFile {
     pub content: String,
     pub frontmatter: Option<HashMap<String, Value>>,
     pub frontmatter_error: Option<String>,
+    pub modified: DateTime<Local>,
 }
 
 impl MemoFile {
@@ -141,6 +145,7 @@ impl MemoFile {
         let parsed = parse_memo_content(&content);
 
         let id = Self::extract_id_from_path(&path)?;
+        let modified = Self::get_modified_time(&path)?;
 
         Ok(MemoFile {
             path,
@@ -148,6 +153,7 @@ impl MemoFile {
             content: parsed.content,
             frontmatter: parsed.frontmatter,
             frontmatter_error: parsed.frontmatter_error,
+            modified,
         })
     }
 
@@ -162,6 +168,7 @@ impl MemoFile {
 
         let parsed = parse_memo_content(&content);
         let id = Self::extract_id_from_path(&path)?;
+        let modified = Self::get_modified_time(&path)?;
 
         Ok(MemoFile {
             path,
@@ -169,6 +176,7 @@ impl MemoFile {
             content: parsed.content,
             frontmatter: parsed.frontmatter,
             frontmatter_error: parsed.frontmatter_error,
+            modified,
         })
     }
 
@@ -207,13 +215,22 @@ impl MemoFile {
         fs::rename(&self.path, &new_path)?;
 
         let new_id = Self::extract_id_from_path(&new_path)?;
+        let modified = Self::get_modified_time(&new_path)?;
         Ok(MemoFile {
             path: new_path,
             id: new_id,
             content: self.content.clone(),
             frontmatter: self.frontmatter.clone(),
             frontmatter_error: self.frontmatter_error.clone(),
+            modified,
         })
+    }
+
+    /// ファイルの更新日時を取得
+    fn get_modified_time(path: &Path) -> MemoResult<DateTime<Local>> {
+        let metadata = fs::metadata(path)?;
+        let modified = metadata.modified()?;
+        Ok(DateTime::from(modified))
     }
 
     pub fn preview(&self, max_length: usize) -> String {
@@ -239,6 +256,7 @@ mod tests {
             content: "これは日本語のテストです。長いテキストをテストします。".to_string(),
             frontmatter: None,
             frontmatter_error: None,
+            modified: chrono::Local::now(),
         };
 
         let preview = memo.preview(10);
@@ -258,6 +276,7 @@ mod tests {
             content: "短いテスト".to_string(),
             frontmatter: None,
             frontmatter_error: None,
+            modified: chrono::Local::now(),
         };
 
         let preview = memo.preview(10);
