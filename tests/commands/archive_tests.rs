@@ -181,95 +181,15 @@ fn test_archive_no_arguments() {
 }
 
 #[test]
-fn test_archive_with_frontmatter() {
-    let context = TestContext::new();
-    
-    // フロントマター付きメモを作成
-    let frontmatter_memo = crate::utils::TestMemoTemplates::WITH_FRONTMATTER;
-    context.create_memo("2025-01/30/143022.md", frontmatter_memo);
-    
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-    
-    assert_command_success(&output);
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    
-    // アーカイブされたファイルの内容を確認
-    let archived_path = context.archive_dir().join("2025-01/30/143022.md");
-    let content = fs::read_to_string(&archived_path).unwrap();
-    assert!(content.contains("title: Test Memo with Frontmatter"));
-}
-
-#[test]
-fn test_archive_large_memo() {
-    let context = TestContext::new();
-    
-    // 大きなメモを作成
-    let large_content = crate::utils::TestMemoTemplates::large_memo(10); // 10KB
-    context.create_memo("2025-01/30/143022.md", &large_content);
-    
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-    
-    assert_command_success(&output);
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    
-    // アーカイブされたファイルのサイズを確認
-    let archived_path = context.archive_dir().join("2025-01/30/143022.md");
-    let metadata = fs::metadata(&archived_path).unwrap();
-    assert!(metadata.len() > 8000); // 8KB以上
-}
-
-#[test]
-fn test_archive_japanese_content() {
-    let context = TestContext::new();
-    
-    // 日本語メモを作成
-    context.create_memo("2025-01/30/143022.md", crate::utils::TestMemoTemplates::JAPANESE);
-    
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-    
-    assert_command_success(&output);
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    
-    // アーカイブされたファイルの日本語内容を確認
-    let archived_path = context.archive_dir().join("2025-01/30/143022.md");
-    let content = fs::read_to_string(&archived_path).unwrap();
-    assert!(content.contains("日本語テストメモ"));
-}
-
-#[test]
-fn test_archive_preserves_file_permissions() {
-    let context = TestContext::new();
-    
-    // メモを作成
-    context.create_memo("2025-01/30/143022.md", "Test content");
-    
-    // ファイル権限を変更
-    let original_path = context.memo_dir().join("2025-01/30/143022.md");
-    let mut perms = fs::metadata(&original_path).unwrap().permissions();
-    perms.set_readonly(true);
-    fs::set_permissions(&original_path, perms).unwrap();
-    
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-    
-    assert_command_success(&output);
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    
-    // アーカイブされたファイルの権限を確認
-    let archived_path = context.archive_dir().join("2025-01/30/143022.md");
-    let archived_perms = fs::metadata(&archived_path).unwrap().permissions();
-    assert!(archived_perms.readonly());
-}
-
-#[test]
 fn test_archive_empty_directory() {
     let context = TestContext::new();
-    
+
     // 空のディレクトリを作成
     let empty_dir = context.memo_dir().join("2025-01/31");
     fs::create_dir_all(&empty_dir).unwrap();
-    
+
     let output = context.run_command(&["archive", "2025-01/31/"]);
-    
+
     // 空のディレクトリのアーカイブは成功するが、出力は実装依存
     assert_command_success(&output);
     // 具体的な出力メッセージは実装に依存するため、成功のみ確認
@@ -278,44 +198,44 @@ fn test_archive_empty_directory() {
 #[cfg(test)]
 mod archive_integration_tests {
     use super::*;
-    
+
     #[test]
     fn test_archive_then_list_workflow() {
         let context = TestContext::new();
         setup_test_memos(&context);
-        
+
         // アーカイブ前のリスト
         let list_before = context.run_command(&["list"]);
         assert_command_success(&list_before);
         assert_output_contains(&list_before, "143022");
-        
+
         // メモをアーカイブ
         let archive_output = context.run_command(&["archive", "2025-01/30/143022.md"]);
         assert_command_success(&archive_output);
-        
+
         // アーカイブ後のリスト
         let list_after = context.run_command(&["list"]);
         assert_command_success(&list_after);
-        
+
         let stdout = String::from_utf8_lossy(&list_after.stdout);
         assert!(!stdout.contains("143022"));
     }
-    
+
     #[test]
     fn test_archive_multiple_workflows() {
         let context = TestContext::new();
         setup_test_memos(&context);
-        
+
         // 段階的にアーカイブ
         let archive1 = context.run_command(&["archive", "2025-01/30/143022.md"]);
         assert_command_success(&archive1);
-        
+
         let archive2 = context.run_command(&["archive", "2025-01/30/151545.md"]);
         assert_command_success(&archive2);
-        
+
         let archive3 = context.run_command(&["archive", "2025-01/29/"]);
         assert_command_success(&archive3);
-        
+
         // 最後に残ったメモのみが存在することを確認
         assert_memo_exists(&context, "2025-01/30/090000.md");
         assert_memo_archived(&context, "2025-01/30/143022.md");

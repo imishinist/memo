@@ -53,7 +53,7 @@ impl TestContext {
             .env("XDG_DATA_HOME", self.temp_dir.path())
             .env("EDITOR", &self.memo_context.editor)
             .current_dir(self.temp_dir.path()); // 作業ディレクトリも設定
-        
+
         cmd.output().expect("Failed to execute command")
     }
 
@@ -192,25 +192,23 @@ pub mod assertions {
 
     /// コマンドが成功したことをアサート
     pub fn assert_command_success(output: &Output) {
-        if !output.status.success() {
-            panic!(
-                "Command failed with status: {}\nstdout: {}\nstderr: {}",
-                output.status,
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
+        assert!(
+            output.status.success(),
+            "Command failed with status: {}\n stdout: {}\n stderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     /// コマンドが失敗したことをアサート
     pub fn assert_command_failure(output: &Output) {
-        if output.status.success() {
-            panic!(
-                "Command unexpectedly succeeded\nstdout: {}\nstderr: {}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
+        assert!(
+            !output.status.success(),
+            "Command unexpectedly succeeded\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     /// コマンドが特定のエラーメッセージで失敗したことをアサート
@@ -253,7 +251,7 @@ pub mod assertions {
             "Memo not found in archive: {}",
             archived_path.display()
         );
-        
+
         let original_path = context.memo_dir().join(relative_path);
         assert!(
             !original_path.exists(),
@@ -297,7 +295,7 @@ pub mod mocks {
     /// 特定の内容を書き込むエディタスクリプトを作成
     pub fn create_mock_editor_script(content: &str) -> std::path::PathBuf {
         use std::io::Write;
-        
+
         let script_content = format!(
             r#"#!/bin/bash
 echo '{}' > "$1"
@@ -311,20 +309,21 @@ echo '{}' > "$1"
             .unwrap()
             .as_nanos();
         let script_path = std::env::temp_dir().join(format!("mock_editor_{}.sh", timestamp));
-        
+
         // スクリプトファイルを作成
         let mut file = std::fs::File::create(&script_path).expect("Failed to create script file");
-        file.write_all(script_content.as_bytes()).expect("Failed to write script");
+        file.write_all(script_content.as_bytes())
+            .expect("Failed to write script");
         file.sync_all().expect("Failed to sync file");
         drop(file);
-        
+
         // 実行権限を設定
         let mut perms = fs::metadata(&script_path)
             .expect("Failed to get metadata")
             .permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&script_path, perms).expect("Failed to set permissions");
-        
+
         script_path
     }
 
@@ -339,16 +338,12 @@ pub mod search_helpers {
     use super::*;
 
     /// 検索を実行して結果を確認
-    pub fn search_and_assert_results(
-        context: &TestContext,
-        query: &str,
-        expected_ids: &[&str],
-    ) {
+    pub fn search_and_assert_results(context: &TestContext, query: &str, expected_ids: &[&str]) {
         let output = context.run_command(&["search", query]);
         assertions::assert_command_success(&output);
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         for expected_id in expected_ids {
             assert!(
                 stdout.contains(expected_id),
