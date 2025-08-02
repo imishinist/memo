@@ -184,7 +184,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(memo.content, "Test content");
-        assert_eq!(memo.id, "2025-01/30/143022");
+        assert_eq!(memo.id.as_str(), "20250130143022");
         assert!(memo.path.exists());
     }
 
@@ -211,7 +211,7 @@ mod tests {
         repo.create_memo("2025-01/30/143022.md", "Test memo".to_string())
             .unwrap();
 
-        let memo = repo.find_memo_by_id("2025-01/30/143022").unwrap();
+        let memo = repo.find_memo_by_id("20250130143022").unwrap();
         assert_eq!(memo.content, "Test memo");
     }
 

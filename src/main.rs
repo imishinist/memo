@@ -7,6 +7,7 @@ mod display;
 mod error;
 mod frontmatter;
 mod memo;
+mod memo_id;
 mod repository;
 mod search;
 mod utils;

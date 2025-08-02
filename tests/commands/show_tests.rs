@@ -10,7 +10,7 @@ fn test_show_existing_memo() {
     // テストメモを作成
     context.create_memo("2025-01/30/143022.md", TestMemoTemplates::BASIC);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Basic Memo");
@@ -34,7 +34,7 @@ fn test_show_empty_memo() {
     // 空のメモを作成
     context.create_memo("2025-01/30/143022.md", "");
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -49,7 +49,7 @@ fn test_show_multiline_content() {
     // 複数行コンテンツのメモを作成
     context.create_memo("2025-01/30/143022.md", TestMemoTemplates::MULTILINE);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Multiline Test Memo");
@@ -68,7 +68,7 @@ fn test_show_with_special_characters() {
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Special Characters");
@@ -86,7 +86,7 @@ fn test_show_with_japanese_content() {
     // 日本語メモを作成
     context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "日本語テストメモ");
@@ -101,64 +101,13 @@ fn test_show_with_japanese_content() {
 fn test_show_with_full_id() {
     let context = TestContext::new();
 
-    // 完全ID形式でメモを作成
+    // 新形式の完全ID（14桁）でメモを作成
     context.create_memo("2025-01/30/143022.md", "Full ID test content");
 
-    let output = context.run_command(&["show", "2025-01/30/143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Full ID test content");
-}
-
-#[test]
-fn test_show_with_short_id_hhmmss() {
-    let context = TestContext::new();
-
-    // 今日の日付でメモを作成
-    let now = chrono::Local::now();
-    let date_path = now.format("%Y-%m/%d").to_string();
-    let full_path = format!("{}/143022.md", date_path);
-
-    context.create_memo(&full_path, "Short ID HHMMSS test");
-
-    let output = context.run_command(&["show", "143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Short ID HHMMSS test");
-}
-
-#[test]
-fn test_show_with_short_id_ddhhmmss() {
-    let context = TestContext::new();
-
-    // 今月の特定日でメモを作成
-    let now = chrono::Local::now();
-    let year_month = now.format("%Y-%m").to_string();
-    let full_path = format!("{}/30/143022.md", year_month);
-
-    context.create_memo(&full_path, "Short ID DDHHMMSS test");
-
-    let output = context.run_command(&["show", "30143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Short ID DDHHMMSS test");
-}
-
-#[test]
-fn test_show_with_short_id_mmddhhmmss() {
-    let context = TestContext::new();
-
-    // 今年の特定月日でメモを作成
-    let now = chrono::Local::now();
-    let year = now.format("%Y").to_string();
-    let full_path = format!("{}-01/30/143022.md", year);
-
-    context.create_memo(&full_path, "Short ID MMDDHHMMSS test");
-
-    let output = context.run_command(&["show", "0130143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Short ID MMDDHHMMSS test");
 }
 
 #[test]
@@ -168,7 +117,7 @@ fn test_show_with_frontmatter() {
     // フロントマター付きメモを作成
     context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONTMATTER);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "title: Test Memo with Frontmatter");
@@ -184,7 +133,7 @@ fn test_show_large_memo() {
     let large_content = TestMemoTemplates::large_memo(50); // 50KB
     context.create_memo("2025-01/30/143022.md", &large_content);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Large Test Memo");
@@ -206,7 +155,7 @@ fn test_show_file_read_error() {
     let memo_path = context.memo_dir().join("2025-01/30/143022.md");
     fs::remove_file(&memo_path).unwrap();
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_failure(&output);
     assert_command_error(&output, "not found");
@@ -225,7 +174,7 @@ fn test_show_permission_denied() {
     perms.set_readonly(true);
     fs::set_permissions(&memo_path, perms).unwrap();
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     // 権限を戻す（クリーンアップ）
     let mut perms = fs::metadata(&memo_path).unwrap().permissions();
@@ -256,7 +205,7 @@ fn test_show_ambiguous_id_resolution() {
     context.create_memo("2025-01/30/143022.md", "Newer memo");
 
     // 短縮IDで検索（最新のものが選択されるはず）
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Newer memo");
@@ -276,7 +225,7 @@ This memo has broken frontmatter but should still be displayable."#;
 
     context.create_memo("2025-01/30/143022.md", broken_frontmatter);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     // 壊れたフロントマターがあっても内容は表示される
     assert_command_success(&output);
@@ -300,7 +249,7 @@ fn test_show_binary_file_handling() {
     )
     .unwrap();
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     // バイナリファイルでも何らかの出力がされる（実装依存）
     // エラーになるか、バイナリデータが表示されるかは実装次第
@@ -323,7 +272,7 @@ fn test_show_very_long_lines() {
     let content = format!("# Long Line Test\n\n{}\n\nEnd of memo", long_line);
     context.create_memo("2025-01/30/143022.md", &content);
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     assert_command_success(&output);
     assert_output_contains(&output, "Long Line Test");
@@ -344,7 +293,7 @@ fn test_show_with_null_bytes() {
     fs::create_dir_all(memo_path.parent().unwrap()).unwrap();
     fs::write(&memo_path, content_with_null.as_bytes()).unwrap();
 
-    let output = context.run_command(&["show", "143022"]);
+    let output = context.run_command(&["show", "20250130143022"]);
 
     // NULL文字があっても表示される（実装依存）
     assert_command_success(&output);

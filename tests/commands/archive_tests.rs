@@ -149,27 +149,6 @@ fn test_archive_ignore_file_already_exists() {
 }
 
 #[test]
-fn test_archive_short_id_formats() {
-    let context = TestContext::new();
-    setup_test_memos(&context);
-
-    // Test different ID formats - these might work if the current date matches
-    // Let's test with a non-existent ID that won't match
-    let test_cases = vec![
-        "999999",     // HHMMSS - non-existent
-        "99999999",   // DDHHMMSS - non-existent
-        "9999999999", // MMDDHHMMSS - non-existent
-    ];
-
-    for id in test_cases.iter() {
-        let output = context.run_command(&["archive", id]);
-
-        // These should fail since they don't exist
-        assert_command_failure(&output);
-    }
-}
-
-#[test]
 fn test_archive_no_arguments() {
     let context = TestContext::new();
     setup_test_memos(&context);

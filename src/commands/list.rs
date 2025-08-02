@@ -37,7 +37,7 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
 
         for memo in &memos {
             let list_item = MemoListItem {
-                id: memo.id.clone(),
+                id: memo.id.as_str(),
                 modified: memo.modified,
                 preview: memo.preview(100),
                 content: Some(memo.content.clone()), // JSON出力時は全文を含める

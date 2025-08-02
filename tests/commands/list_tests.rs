@@ -133,9 +133,12 @@ fn test_list_exactly_20_memos() {
 fn test_list_large_dataset() {
     let context = TestContext::new();
 
-    // 100個のメモを作成
+    // 100個のメモを作成（有効な時刻を使用）
     for i in 0..100 {
-        let id = format!("2025-01/30/{:06}.md", 100000 + i);
+        let hour = 10 + (i / 60);
+        let minute = i % 60;
+        let second = (i * 7) % 60; // 秒も有効な範囲に
+        let id = format!("2025-01/30/{:02}{:02}{:02}.md", hour, minute, second);
         let content = format!("Large dataset memo {}", i);
         context.create_memo(&id, &content);
     }
@@ -365,11 +368,13 @@ mod list_performance_tests {
     fn test_list_performance_with_many_memos() {
         let context = TestContext::new();
 
-        // 1000個のメモを作成
+        // 1000個のメモを作成（有効な時刻を使用）
         for i in 0..1000 {
             let day = (i % 30) + 1;
-            let time = 100000 + i;
-            let id = format!("2025-01/{:02}/{:06}.md", day, time);
+            let hour = 10 + (i / 3600) % 14; // 10-23時
+            let minute = (i / 60) % 60;
+            let second = i % 60;
+            let id = format!("2025-01/{:02}/{:02}{:02}{:02}.md", day, hour, minute, second);
             let content = format!("Performance test memo {}", i);
             context.create_memo(&id, &content);
         }

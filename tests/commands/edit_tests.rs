@@ -8,10 +8,10 @@ fn test_edit_existing_memo() {
     // テストメモを作成
     context.create_memo("2025-01/30/143022.md", "Original content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 143022");
+    assert_output_contains(&output, "Memo edited: 20250130143022");
 }
 
 #[test]
@@ -22,7 +22,7 @@ fn test_edit_with_content_modification() {
     // 初期内容でメモを作成
     context.create_memo("2025-01/30/143022.md", "Original content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -36,64 +36,13 @@ fn test_edit_with_content_modification() {
 fn test_edit_with_full_id() {
     let context = TestContext::new();
 
-    // 完全ID形式でメモを作成
+    // 新形式の完全ID（14桁）でメモを作成
     context.create_memo("2025-01/30/143022.md", "Test content");
 
-    let output = context.run_command(&["edit", "2025-01/30/143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 2025-01/30/143022");
-}
-
-#[test]
-fn test_edit_with_short_id_hhmmss() {
-    let context = TestContext::new();
-
-    // 今日の日付でメモを作成
-    let now = chrono::Local::now();
-    let date_path = now.format("%Y-%m/%d").to_string();
-    let full_path = format!("{}/143022.md", date_path);
-
-    context.create_memo(&full_path, "Test content");
-
-    let output = context.run_command(&["edit", "143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 143022");
-}
-
-#[test]
-fn test_edit_with_short_id_ddhhmmss() {
-    let context = TestContext::new();
-
-    // 今月の特定日でメモを作成
-    let now = chrono::Local::now();
-    let year_month = now.format("%Y-%m").to_string();
-    let full_path = format!("{}/30/143022.md", year_month);
-
-    context.create_memo(&full_path, "Test content");
-
-    let output = context.run_command(&["edit", "30143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 30143022");
-}
-
-#[test]
-fn test_edit_with_short_id_mmddhhmmss() {
-    let context = TestContext::new();
-
-    // 今年の特定月日でメモを作成
-    let now = chrono::Local::now();
-    let year = now.format("%Y").to_string();
-    let full_path = format!("{}-01/30/143022.md", year);
-
-    context.create_memo(&full_path, "Test content");
-
-    let output = context.run_command(&["edit", "0130143022"]);
-
-    assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 0130143022");
+    assert_output_contains(&output, "Memo edited: 20250130143022");
 }
 
 #[test]
@@ -123,7 +72,7 @@ fn test_edit_editor_not_found() {
     // テストメモを作成
     context.create_memo("2025-01/30/143022.md", "Test content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_failure(&output);
     assert_command_error(&output, "Failed to launch editor");
@@ -136,7 +85,7 @@ fn test_edit_editor_exits_with_error() {
     // テストメモを作成
     context.create_memo("2025-01/30/143022.md", "Test content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_failure(&output);
     assert_command_error(&output, "Editor exited with non-zero status");
@@ -155,7 +104,7 @@ fn test_edit_file_permission_denied() {
     perms.set_readonly(true);
     fs::set_permissions(&memo_path, perms).unwrap();
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     // 権限を戻す（クリーンアップ）
     let mut perms = fs::metadata(&memo_path).unwrap().permissions();
@@ -177,7 +126,7 @@ fn test_edit_with_custom_editor() {
     // テストメモを作成
     context.create_memo("2025-01/30/143022.md", "Original content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -195,7 +144,7 @@ fn test_edit_memo_with_frontmatter() {
     // フロントマター付きメモを作成
     context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONTMATTER);
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -222,7 +171,7 @@ fn test_edit_adds_frontmatter() {
         "Original content without frontmatter",
     );
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -241,7 +190,7 @@ fn test_edit_empty_memo() {
     // 空のメモを作成
     context.create_memo("2025-01/30/143022.md", "");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -260,7 +209,7 @@ fn test_edit_large_memo() {
     // 大きなメモを作成
     context.create_memo("2025-01/30/143022.md", &large_content);
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -281,7 +230,7 @@ fn test_edit_memo_with_special_characters() {
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     assert_command_success(&output);
 
@@ -299,11 +248,11 @@ fn test_edit_index_update_failure_does_not_fail_command() {
     // メモを作成
     context.create_memo("2025-01/30/143022.md", "Test content");
 
-    let output = context.run_command(&["edit", "143022"]);
+    let output = context.run_command(&["edit", "20250130143022"]);
 
     // メモ編集は成功するはず（インデックス更新失敗は無視される）
     assert_command_success(&output);
-    assert_output_contains(&output, "Memo edited: 143022");
+    assert_output_contains(&output, "Memo edited: 20250130143022");
 }
 
 #[cfg(test)]
@@ -319,11 +268,11 @@ mod edit_integration_tests {
         context.create_memo("2025-01/30/143022.md", "Original content");
 
         // メモを編集
-        let edit_output = context.run_command(&["edit", "143022"]);
+        let edit_output = context.run_command(&["edit", "20250130143022"]);
         assert_command_success(&edit_output);
 
         // 編集したメモを表示
-        let show_output = context.run_command(&["show", "143022"]);
+        let show_output = context.run_command(&["show", "20250130143022"]);
         assert_command_success(&show_output);
         assert_output_contains(&show_output, "Edited content for workflow test");
     }

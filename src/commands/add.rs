@@ -1,17 +1,14 @@
 use crate::context::MemoContext;
 use crate::error::{MemoError, MemoResult};
 use crate::memo::MemoDocument;
+use crate::memo_id::MemoId;
 use crate::repository::MemoRepository;
 use crate::search::SearchManager;
-use chrono::Local;
 use std::process::Command;
 
 pub fn run(context: &MemoContext) -> MemoResult<()> {
-    let now = Local::now();
-
-    let date_dir = now.format("%Y-%m/%d").to_string();
-    let time_filename = now.format("%H%M%S.md").to_string();
-    let relative_path = format!("{}/{}", date_dir, time_filename);
+    let memo_id = MemoId::new();
+    let relative_path = memo_id.to_relative_path();
 
     let repo = MemoRepository::new(context.clone());
 
@@ -22,8 +19,7 @@ pub fn run(context: &MemoContext) -> MemoResult<()> {
     // インデックスを更新
     update_search_index(context, &memo.path)?;
 
-    let id = time_filename.trim_end_matches(".md");
-    println!("Memo created: {}/{}", date_dir, id);
+    println!("Memo created: {}", memo_id);
 
     Ok(())
 }
