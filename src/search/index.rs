@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::error::MemoError;
 use crate::memo::{MemoDocument, MemoFile};
 use crate::search::{SearchResult, japanese_tokenizer::JapaneseTokenizer};
@@ -30,6 +32,8 @@ pub struct SearchIndex {
     tags_field: Field,
     tags_facet_field: Field,
     created_at_field: Field,
+
+    metadata_field: Field,
 }
 
 impl SearchIndex {
@@ -41,12 +45,11 @@ impl SearchIndex {
         let index_dir = index_dir.as_ref().to_path_buf();
 
         // japanese text options
+        let ja_fi = TextFieldIndexing::default()
+            .set_tokenizer("lang_ja") // 日本語トークナイザーを指定
+            .set_index_option(IndexRecordOption::WithFreqsAndPositions);
         let text_options = TextOptions::default()
-            .set_indexing_options(
-                TextFieldIndexing::default()
-                    .set_tokenizer("lang_ja") // 日本語トークナイザーを指定
-                    .set_index_option(IndexRecordOption::WithFreqsAndPositions),
-            )
+            .set_indexing_options(ja_fi.clone())
             .set_stored();
 
         // schema building
@@ -61,6 +64,12 @@ impl SearchIndex {
         let tags_field = schema_builder.add_text_field("tags", text_options.clone());
         let tags_facet_field = schema_builder.add_facet_field("tags.facet", INDEXED);
         let created_at_field = schema_builder.add_date_field("created_at", INDEXED | STORED);
+
+        let json_options = JsonObjectOptions::default()
+            .set_stored()
+            .set_expand_dots_enabled()
+            .set_indexing_options(ja_fi.clone());
+        let metadata_field = schema_builder.add_json_field("metadata", json_options);
         let schema = schema_builder.build();
 
         let index = Index::create_in_dir(&index_dir, schema)?;
@@ -87,6 +96,7 @@ impl SearchIndex {
             tags_field,
             tags_facet_field,
             created_at_field,
+            metadata_field,
         })
     }
 
@@ -111,6 +121,7 @@ impl SearchIndex {
         let tags_field = schema.get_field("tags")?;
         let tags_facet_field = schema.get_field("tags.facet")?;
         let created_at_field = schema.get_field("created_at")?;
+        let metadata_field = schema.get_field("metadata")?;
 
         let writer = index.writer(50_000_000)?;
         let reader = index.reader()?;
@@ -128,6 +139,7 @@ impl SearchIndex {
             tags_field,
             tags_facet_field,
             created_at_field,
+            metadata_field,
         })
     }
 
@@ -156,19 +168,7 @@ impl SearchIndex {
                 }
             }
 
-            // metadataフィールド（title, tags以外）
-            // TODO: TantivyのJSONフィールドAPIを正しく実装
-            /*
-            let mut metadata = frontmatter.clone();
-            if let JsonValue::Object(ref mut map) = metadata {
-                map.remove("title");
-                map.remove("tags");
-
-                if !map.is_empty() {
-                    doc.add_object(self.metadata_field, metadata);
-                }
-            }
-            */
+            doc.add_object(self.metadata_field, convert_map(front_matter.clone()));
         }
 
         self.writer.add_document(doc)?;
@@ -212,5 +212,225 @@ impl SearchIndex {
         }
 
         Ok(results)
+    }
+}
+
+fn convert_map(value: serde_json::Value) -> BTreeMap<String, OwnedValue> {
+    use serde_json::Value;
+
+    let mut tmp = BTreeMap::new();
+    match value {
+        Value::Object(t) => {
+            for (k, v) in t.into_iter() {
+                tmp.insert(k.clone(), convert_value(v));
+            }
+        }
+        _ => {}
+    }
+    tmp
+}
+
+fn convert_value(value: serde_json::Value) -> OwnedValue {
+    use serde_json::Value;
+    match value {
+        Value::Null => OwnedValue::Null,
+        Value::Bool(b) => OwnedValue::from(b),
+        Value::Number(n) if n.is_u64() => OwnedValue::U64(n.as_u64().unwrap()),
+        Value::Number(n) if n.is_i64() => OwnedValue::I64(n.as_i64().unwrap()),
+        Value::Number(n) if n.is_f64() => OwnedValue::F64(n.as_f64().unwrap()),
+        Value::Number(n) => OwnedValue::Str(n.to_string()),
+        Value::String(s) => OwnedValue::from(s.to_string()),
+        Value::Array(values) => OwnedValue::Array(values.into_iter().map(convert_value).collect()),
+        Value::Object(values) => OwnedValue::Object(
+            values
+                .into_iter()
+                .map(|(k, v)| (k, convert_value(v)))
+                .collect(),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    macro_rules! btree_map {
+        ($($key:expr => $value:expr),* $(,)?) => {
+            {
+                let mut map = BTreeMap::new();
+                $(map.insert($key.to_string(), $value);)*
+                map
+            }
+        };
+    }
+
+    #[test]
+    fn test_convert_value_basic_types() {
+        // null
+        assert_eq!(convert_value(json!(null)), OwnedValue::Null);
+
+        // boolean
+        assert_eq!(convert_value(json!(true)), OwnedValue::Bool(true));
+        assert_eq!(convert_value(json!(false)), OwnedValue::Bool(false));
+
+        // string
+        assert_eq!(
+            convert_value(json!("test string")),
+            OwnedValue::Str("test string".to_string())
+        );
+
+        // numbers
+        assert_eq!(convert_value(json!(42u64)), OwnedValue::U64(42));
+        assert_eq!(convert_value(json!(-42i64)), OwnedValue::I64(-42));
+        assert!(
+            matches!(convert_value(json!(3.14f64)), OwnedValue::F64(f) if (f - 3.14).abs() < f64::EPSILON)
+        );
+
+        // large numbers
+        assert!(
+            matches!(convert_value(json!(1.23e20)), OwnedValue::F64(_))
+                || matches!(convert_value(json!(1.23e20)), OwnedValue::Str(_))
+        );
+    }
+
+    #[test]
+    fn test_convert_value_arrays() {
+        assert!(matches!(convert_value(json!([])), OwnedValue::Array(arr) if arr.is_empty()));
+
+        assert_eq!(
+            convert_value(json!([1, 2, 3])),
+            OwnedValue::Array(vec![
+                OwnedValue::U64(1),
+                OwnedValue::U64(2),
+                OwnedValue::U64(3),
+            ])
+        );
+
+        assert_eq!(
+            convert_value(json!([1, "test", true, null])),
+            OwnedValue::Array(vec![
+                OwnedValue::U64(1),
+                OwnedValue::Str("test".to_string()),
+                OwnedValue::Bool(true),
+                OwnedValue::Null,
+            ])
+        );
+
+        assert_eq!(
+            convert_value(json!([[1, 2], [3, 4]])),
+            OwnedValue::Array(vec![
+                OwnedValue::Array(vec![OwnedValue::U64(1), OwnedValue::U64(2)]),
+                OwnedValue::Array(vec![OwnedValue::U64(3), OwnedValue::U64(4)]),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_convert_value_nested_objects() {
+        // Simple object
+        assert_eq!(
+            convert_map(json!({
+                "name": "test",
+                "value": 42
+            })),
+            btree_map! {
+                "name" => OwnedValue::Str("test".to_string()),
+                "value" => OwnedValue::U64(42),
+            }
+        );
+
+        assert_eq!(
+            convert_map(json!({
+                "user": {
+                    "name": "John",
+                    "age": 30,
+                    "active": true
+                },
+                "tags": ["tag1", "tag2"]
+            })),
+            btree_map! {
+                "user" => OwnedValue::Object(btree_map !{
+                    "name" => OwnedValue::Str("John".to_string()),
+                    "age" => OwnedValue::U64(30),
+                    "active" => OwnedValue::Bool(true),
+                }.into_iter().collect()),
+                "tags" => OwnedValue::Array(vec![
+                    OwnedValue::Str("tag1".to_string()),
+                    OwnedValue::Str("tag2".to_string()),
+                ]),
+            }
+        );
+
+        // complex nested structure
+        assert_eq!(
+            convert_map(json!({
+                "title": "Test Memo",
+                "tags": ["@important", "@work"],
+                "priority": 1,
+                "created_at": "2025-01-30T15:15:45Z",
+                "author": {
+                    "name": "John Doe",
+                    "email": "john@example.com"
+                },
+                "settings": {
+                    "public": false,
+                    "archived": false,
+                    "categories": ["personal", "notes"]
+                }
+            })),
+            btree_map! {
+                "title" => OwnedValue::Str("Test Memo".to_string()),
+                "tags" => OwnedValue::Array(vec![
+                    OwnedValue::Str("@important".to_string()),
+                    OwnedValue::Str("@work".to_string()),
+                ]),
+                "priority" => OwnedValue::U64(1),
+                "created_at" => OwnedValue::Str("2025-01-30T15:15:45Z".to_string()),
+                "author" => OwnedValue::Object(btree_map! {
+                    "name" => OwnedValue::Str("John Doe".to_string()),
+                    "email" => OwnedValue::Str("john@example.com".to_string()),
+                }.into_iter().collect()),
+                "settings" => OwnedValue::Object(btree_map! {
+                    "public" => OwnedValue::Bool(false),
+                    "archived" => OwnedValue::Bool(false),
+                    "categories" => OwnedValue::Array(vec![
+                        OwnedValue::Str("personal".to_string()),
+                        OwnedValue::Str("notes".to_string()),
+                    ]),
+                }.into_iter().collect()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_convert_map_empty_and_null() {
+        // Empty object
+        assert!(convert_map(json!({})).is_empty());
+
+        // Object with null values
+        let object_with_nulls = json!({
+            "null_field": null,
+            "string_field": "test"
+        });
+        let converted = convert_map(object_with_nulls);
+        assert_eq!(converted.len(), 2);
+        assert!(matches!(
+            converted.get("null_field").unwrap(),
+            OwnedValue::Null
+        ));
+        assert!(matches!(
+            converted.get("string_field").unwrap(),
+            OwnedValue::Str(_)
+        ));
+
+        // Non-object value (should return empty map)
+        let non_object = json!("not an object");
+        let converted = convert_map(non_object);
+        assert!(converted.is_empty());
+
+        let array_value = json!([1, 2, 3]);
+        let converted = convert_map(array_value);
+        assert!(converted.is_empty());
     }
 }
