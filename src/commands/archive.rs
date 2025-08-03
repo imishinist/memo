@@ -1,7 +1,10 @@
 use crate::context::MemoContext;
 use crate::error::{MemoError, MemoResult};
+use crate::memo::MemoDocument;
+use crate::memo::MemoFile;
 use crate::repository::MemoRepository;
-use crate::utils::id_resolver::resolve_memo_id;
+use crate::search::SearchManager;
+use crate::utils::id_resolver;
 
 pub fn run(context: &MemoContext, targets: &[String]) -> MemoResult<()> {
     if targets.is_empty() {
@@ -10,12 +13,16 @@ pub fn run(context: &MemoContext, targets: &[String]) -> MemoResult<()> {
         ));
     }
 
+    let data_dir = context.memo_dir.clone();
+    let index_dir = context.index_dir();
+    let search_manager = SearchManager::new(data_dir, index_dir);
+
     let repo = MemoRepository::new(context.clone());
     let mut archived_count = 0;
     let mut errors = Vec::new();
 
     for target in targets {
-        match archive_target(&repo, target) {
+        match archive_target(&search_manager, &repo, target) {
             Ok(count) => archived_count += count,
             Err(e) => errors.push(format!("Error archiving '{}': {}", target, e)),
         }
@@ -39,10 +46,15 @@ pub fn run(context: &MemoContext, targets: &[String]) -> MemoResult<()> {
     Ok(())
 }
 
-fn archive_target(repo: &MemoRepository, target: &str) -> MemoResult<usize> {
-    if let Ok(file_path) = resolve_memo_id(repo.memo_dir(), target) {
-        let memo = crate::memo::MemoFile::from_path(&file_path)?;
+fn archive_target(
+    search_manager: &SearchManager,
+    repo: &MemoRepository,
+    target: &str,
+) -> MemoResult<usize> {
+    if let Ok(file_path) = id_resolver::resolve_memo_id(repo.memo_dir(), target) {
+        let memo = MemoFile::from_path(&file_path)?;
         repo.archive_memo(&memo)?;
+        search_manager.remove_memo(&MemoDocument::from_memo_file(&memo))?;
         return Ok(1);
     }
 
@@ -53,21 +65,18 @@ fn archive_target(repo: &MemoRepository, target: &str) -> MemoResult<usize> {
     };
 
     if file_path.exists() && file_path.is_file() {
-        let memo = crate::memo::MemoFile::from_path(&file_path)?;
+        let memo = MemoFile::from_path(&file_path)?;
         repo.archive_memo(&memo)?;
-        return Ok(1);
-    }
-
-    let file_path_no_ext = repo.memo_dir().join(target);
-    if file_path_no_ext.exists() && file_path_no_ext.is_file() {
-        let memo = crate::memo::MemoFile::from_path(&file_path_no_ext)?;
-        repo.archive_memo(&memo)?;
+        search_manager.remove_memo(&MemoDocument::from_memo_file(&memo))?;
         return Ok(1);
     }
 
     let dir_path = target.trim_end_matches('/');
     if repo.memo_dir().join(dir_path).exists() && repo.memo_dir().join(dir_path).is_dir() {
         let archived_memos = repo.archive_directory(dir_path)?;
+        for memo in &archived_memos {
+            search_manager.remove_memo(&MemoDocument::from_memo_file(memo))?;
+        }
         return Ok(archived_memos.len());
     }
 

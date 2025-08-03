@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 /// MemoIDを使ってファイルパスを解決（14桁の完全IDのみサポート）
 pub fn resolve_memo_id<P: AsRef<Path>>(memo_dir: P, id: &str) -> MemoResult<PathBuf> {
     let memo_dir = memo_dir.as_ref();
-    
+
     // 14桁の完全IDのみサポート
     let memo_id = MemoId::from_str(id)?;
     let file_path = memo_id.to_file_path(memo_dir);
-    
+
     if file_path.exists() {
         Ok(file_path)
     } else {

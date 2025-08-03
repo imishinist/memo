@@ -28,7 +28,7 @@ where
 
 pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
     let repo = MemoRepository::new(context.clone());
-    let memos = repo.list_recent_memos(20)?;
+    let memos = repo.list_all_memos()?;
 
     if json_output {
         if memos.is_empty() {
@@ -41,8 +41,8 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
                 modified: memo.modified,
                 preview: memo.preview(100),
                 content: Some(memo.content.clone()), // JSON出力時は全文を含める
-                metadata: memo.frontmatter.clone(),
-                metadata_error: memo.frontmatter_error.clone(),
+                metadata: memo.metadata.clone(),
+                metadata_error: memo.metadata_error.clone(),
             };
 
             if let Ok(json) = serde_json::to_string(&list_item) {
@@ -51,7 +51,7 @@ pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
         }
     } else {
         // 共通の表示機能を使用
-        MemoDisplayFormatter::display_memo_list(&memos, "Recent memos", None);
+        MemoDisplayFormatter::display_memo_list(&memos, "Recent memos");
 
         if memos.len() == 20 {
             let total_count = repo.list_all_memos()?.len();

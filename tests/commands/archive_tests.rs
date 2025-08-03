@@ -14,16 +14,12 @@ fn test_archive_single_id() {
     setup_test_memos(&context);
 
     let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-
     assert_command_success(&output);
 
-    // Check that original file is moved
     assert_memo_not_exists(&context, "2025-01/30/143022.md");
-
-    // Check that file exists in archive
     assert_memo_archived(&context, "2025-01/30/143022.md");
 
-    // Check .ignore file is created
+    // Check a .ignore file is created
     let ignore_path = context.memo_dir().join(".ignore");
     assert!(ignore_path.exists());
     let ignore_content = fs::read_to_string(&ignore_path).unwrap();
@@ -72,22 +68,6 @@ fn test_archive_directory() {
 
     // Check that other day remains
     assert_memo_exists(&context, "2025-01/29/120000.md");
-}
-
-#[test]
-fn test_archive_file_path() {
-    let context = TestContext::new();
-    setup_test_memos(&context);
-
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
-
-    assert_command_success(&output);
-
-    // Check that original file is moved
-    assert_memo_not_exists(&context, "2025-01/30/143022.md");
-
-    // Check that file exists in archive
-    assert_memo_archived(&context, "2025-01/30/143022.md");
 }
 
 #[test]
@@ -163,15 +143,11 @@ fn test_archive_no_arguments() {
 fn test_archive_empty_directory() {
     let context = TestContext::new();
 
-    // 空のディレクトリを作成
     let empty_dir = context.memo_dir().join("2025-01/31");
     fs::create_dir_all(&empty_dir).unwrap();
 
     let output = context.run_command(&["archive", "2025-01/31/"]);
-
-    // 空のディレクトリのアーカイブは成功するが、出力は実装依存
     assert_command_success(&output);
-    // 具体的な出力メッセージは実装に依存するため、成功のみ確認
 }
 
 #[cfg(test)]
@@ -183,16 +159,13 @@ mod archive_integration_tests {
         let context = TestContext::new();
         setup_test_memos(&context);
 
-        // アーカイブ前のリスト
         let list_before = context.run_command(&["list"]);
         assert_command_success(&list_before);
         assert_output_contains(&list_before, "143022");
 
-        // メモをアーカイブ
         let archive_output = context.run_command(&["archive", "2025-01/30/143022.md"]);
         assert_command_success(&archive_output);
 
-        // アーカイブ後のリスト
         let list_after = context.run_command(&["list"]);
         assert_command_success(&list_after);
 
@@ -205,7 +178,6 @@ mod archive_integration_tests {
         let context = TestContext::new();
         setup_test_memos(&context);
 
-        // 段階的にアーカイブ
         let archive1 = context.run_command(&["archive", "2025-01/30/143022.md"]);
         assert_command_success(&archive1);
 
@@ -215,7 +187,6 @@ mod archive_integration_tests {
         let archive3 = context.run_command(&["archive", "2025-01/29/"]);
         assert_command_success(&archive3);
 
-        // 最後に残ったメモのみが存在することを確認
         assert_memo_exists(&context, "2025-01/30/090000.md");
         assert_memo_archived(&context, "2025-01/30/143022.md");
         assert_memo_archived(&context, "2025-01/30/151545.md");

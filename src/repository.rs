@@ -3,9 +3,9 @@ use crate::error::{MemoError, MemoResult};
 use crate::memo::{MemoDocument, MemoFile};
 use crate::utils::id_resolver::resolve_memo_id;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-/// メモリポジトリを管理する構造体
+/// MemoRepository is responsible for managing memo files.
 pub struct MemoRepository {
     context: MemoContext,
 }
@@ -13,15 +13,6 @@ pub struct MemoRepository {
 impl MemoRepository {
     pub fn new(context: MemoContext) -> Self {
         MemoRepository { context }
-    }
-
-    /// data_dirからMemoRepositoryを作成
-    pub fn from_data_dir(data_dir: PathBuf) -> Self {
-        let context = MemoContext {
-            memo_dir: data_dir,
-            editor: std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string()),
-        };
-        Self::new(context)
     }
 
     pub fn memo_dir(&self) -> &Path {
@@ -32,24 +23,18 @@ impl MemoRepository {
         let mut memos = Vec::new();
         self.collect_memos_recursive(&self.context.memo_dir, &mut memos)?;
 
-        // 作成日時でソート（新しい順）
+        // sort by modified time in descending order
         memos.sort_by(|a, b| b.path.cmp(&a.path));
 
         Ok(memos)
     }
 
-    /// 検索機能用：全メモをMemoDocumentとして取得
     pub fn list_all_memo_documents(&self) -> MemoResult<Vec<MemoDocument>> {
         let memo_files = self.list_all_memos()?;
         Ok(memo_files
             .iter()
             .map(MemoDocument::from_memo_file)
             .collect())
-    }
-
-    pub fn list_recent_memos(&self, limit: usize) -> MemoResult<Vec<MemoFile>> {
-        let all_memos = self.list_all_memos()?;
-        Ok(all_memos.into_iter().take(limit).collect())
     }
 
     pub fn find_memo_by_id(&self, id: &str) -> MemoResult<MemoFile> {
@@ -59,30 +44,30 @@ impl MemoRepository {
         MemoFile::from_path(resolved_path)
     }
 
-    pub fn create_memo(&self, relative_path: &str, content: String) -> MemoResult<MemoFile> {
+    pub fn create_memo<P: AsRef<Path>>(
+        &self,
+        relative_path: P,
+        content: String,
+    ) -> MemoResult<MemoFile> {
         let full_path = self.context.memo_dir.join(relative_path);
         MemoFile::create(full_path, content)
     }
 
+    // archive a single memo file
     pub fn archive_memo(&self, memo: &MemoFile) -> MemoResult<MemoFile> {
         let archive_dir = self.context.archive_dir();
-
-        let relative_path = memo
-            .path
-            .strip_prefix(&self.context.memo_dir)
-            .map_err(|_| MemoError::ArchiveError("Invalid memo path".to_string()))?;
-
+        let relative_path = memo.id.to_relative_path();
         let archive_path = archive_dir.join(relative_path);
 
         if let Some(parent) = archive_path.parent() {
             fs::create_dir_all(parent)?;
         }
-
         self.ensure_archive_ignored()?;
 
         memo.move_to(archive_path)
     }
 
+    // archive multiple memo files
     pub fn archive_memos(&self, memos: Vec<MemoFile>) -> MemoResult<Vec<MemoFile>> {
         let mut archived = Vec::new();
 
@@ -94,6 +79,7 @@ impl MemoRepository {
         Ok(archived)
     }
 
+    /// archive all memo files in a directory
     pub fn archive_directory(&self, dir_path: &str) -> MemoResult<Vec<MemoFile>> {
         let full_dir_path = self.context.memo_dir.join(dir_path);
 
@@ -107,7 +93,7 @@ impl MemoRepository {
         self.archive_memos(memos)
     }
 
-    /// .ignoreファイルに.archiveを追加
+    /// add ".archive" to .ignore file
     fn ensure_archive_ignored(&self) -> MemoResult<()> {
         let ignore_file = self.context.ignore_file();
 
@@ -128,7 +114,7 @@ impl MemoRepository {
         Ok(())
     }
 
-    /// 再帰的にメモファイルを収集（.archiveディレクトリはスキップ）
+    /// connects to the memo directory and recursively collects all memo files
     fn collect_memos_recursive(&self, dir: &Path, memos: &mut Vec<MemoFile>) -> MemoResult<()> {
         if !dir.exists() {
             return Ok(());
@@ -146,7 +132,7 @@ impl MemoRepository {
             } else if path.extension().and_then(|s| s.to_str()) == Some("md") {
                 match MemoFile::from_path(&path) {
                     Ok(memo) => memos.push(memo),
-                    Err(_) => continue, // 無効なファイルはスキップ
+                    Err(_) => continue,
                 }
             }
         }
@@ -175,6 +161,15 @@ mod tests {
     }
 
     #[test]
+    fn test_memo_repository_dir() {
+        let (_temp_dir, context) = create_test_context();
+        let repo = MemoRepository::new(context.clone());
+
+        assert_eq!(repo.memo_dir(), context.memo_dir);
+        assert!(repo.memo_dir().exists());
+    }
+
+    #[test]
     fn test_create_memo() {
         let (_temp_dir, context) = create_test_context();
         let repo = MemoRepository::new(context);
@@ -193,7 +188,6 @@ mod tests {
         let (_temp_dir, context) = create_test_context();
         let repo = MemoRepository::new(context);
 
-        // テストメモを作成
         repo.create_memo("2025-01/30/143022.md", "Memo 1".to_string())
             .unwrap();
         repo.create_memo("2025-01/30/151545.md", "Memo 2".to_string())
@@ -201,6 +195,8 @@ mod tests {
 
         let memos = repo.list_all_memos().unwrap();
         assert_eq!(memos.len(), 2);
+        assert_eq!(memos[0].content, "Memo 2");
+        assert_eq!(memos[1].content, "Memo 1");
     }
 
     #[test]
@@ -213,6 +209,10 @@ mod tests {
 
         let memo = repo.find_memo_by_id("20250130143022").unwrap();
         assert_eq!(memo.content, "Test memo");
+        matches!(
+            repo.find_memo_by_id("invalid_id").unwrap_err(),
+            MemoError::MemoNotFound(_)
+        );
     }
 
     #[test]
@@ -225,11 +225,54 @@ mod tests {
             .unwrap();
         let archived = repo.archive_memo(&memo).unwrap();
 
-        // 元のファイルが存在しないことを確認
         assert!(!memo.path.exists());
-
-        // アーカイブファイルが存在することを確認
         assert!(archived.path.exists());
         assert!(archived.path.to_string_lossy().contains(".archive"));
+    }
+
+    #[test]
+    fn test_archive_memos() {
+        let (_temp_dir, context) = create_test_context();
+        let repo = MemoRepository::new(context);
+
+        let memo1 = repo
+            .create_memo("2025-01/30/143022.md", "Memo 1".to_string())
+            .unwrap();
+        let memo2 = repo
+            .create_memo("2025-01/30/151545.md", "Memo 2".to_string())
+            .unwrap();
+
+        let archived = repo.archive_memos(vec![memo1, memo2]).unwrap();
+
+        assert_eq!(archived.len(), 2);
+        for memo in archived {
+            assert!(memo.path.exists());
+            assert!(memo.path.to_string_lossy().contains(".archive"));
+        }
+    }
+
+    #[test]
+    fn test_archive_directory() {
+        let (_temp_dir, context) = create_test_context();
+        let repo = MemoRepository::new(context);
+
+        repo.create_memo("2025-01/30/143022.md", "Memo 1".to_string())
+            .unwrap();
+        repo.create_memo("2025-01/30/151545.md", "Memo 2".to_string())
+            .unwrap();
+        repo.create_memo("2025-02/01/151545.md", "Memo 3".to_string())
+            .unwrap();
+
+        let archived = repo.archive_directory("2025-01/30").unwrap();
+        assert_eq!(archived.len(), 2);
+        for memo in archived {
+            assert!(memo.path.exists());
+            assert!(memo.path.to_string_lossy().contains(".archive"));
+        }
+        assert!(repo.memo_dir().join("2025-01/30").exists());
+        assert!(!repo.memo_dir().join("2025-01/30/143022.md").exists());
+        assert!(!repo.memo_dir().join("2025-01/30/151545.md").exists());
+        assert!(repo.memo_dir().join("2025-02/01/151545.md").exists());
+        assert!(repo.memo_dir().join("2025-02/01").exists());
     }
 }

@@ -13,70 +13,88 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub struct SearchResult {
     pub memo: MemoDocument,
+
+    #[allow(dead_code)]
     pub score: f32,
 }
 
-/// 検索機能の統合インターface
+/// 検索機能の統合 interface
 pub struct SearchManager {
     data_dir: PathBuf,
+    index_base_dir: PathBuf,
 }
 
 impl SearchManager {
-    pub fn new(data_dir: PathBuf) -> Self {
-        Self { data_dir }
+    pub fn new(data_dir: PathBuf, index_base_dir: PathBuf) -> Self {
+        Self {
+            data_dir,
+            index_base_dir,
+        }
     }
 
-    /// 現在のインデックスを取得
-    pub fn get_current_index(&self) -> Result<Option<SearchIndex>, MemoError> {
-        let version_file = self.data_dir.join(".indexversion");
+    fn get_version_file(&self) -> PathBuf {
+        self.index_base_dir.join("version")
+    }
+
+    fn get_version(&self) -> Result<Option<String>, MemoError> {
+        let version_file = self.get_version_file();
         if !version_file.exists() {
             return Ok(None);
         }
 
         let version = std::fs::read_to_string(&version_file)
-            .map_err(|e| MemoError::Io(e))?
-            .trim()
-            .to_string();
+            .map_err(|e| MemoError::Io(e))
+            .map(|s| s.trim().to_string())?;
+        Ok(Some(version))
+    }
 
-        let index_dir = self.data_dir.join(".index").join(&version);
+    pub fn get_current_index(&self) -> Result<Option<SearchIndex>, MemoError> {
+        let version = match self.get_version()? {
+            Some(v) => v,
+            None => return Ok(None), // No index version found
+        };
+        let index_dir = self.index_base_dir.join(&version);
         if !index_dir.exists() {
             return Ok(None);
         }
-
-        Ok(Some(SearchIndex::open(index_dir)?))
+        Ok(Some(SearchIndex::open(&self.data_dir, &index_dir)?))
     }
 
-    /// 新しいインデックスを作成
     pub fn create_new_index(&self) -> Result<SearchIndex, MemoError> {
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
-        let index_dir = self.data_dir.join(".index").join(&timestamp);
+        let index_dir = self.index_base_dir.join(&timestamp);
 
         std::fs::create_dir_all(&index_dir).map_err(|e| MemoError::Io(e))?;
+        let index = SearchIndex::create(self.data_dir.clone(), index_dir)?;
 
-        let index = SearchIndex::create(index_dir.clone())?;
-
-        // バージョンファイルを更新
-        let version_file = self.data_dir.join(".indexversion");
+        // update version file
+        let version_file = self.get_version_file();
         std::fs::write(&version_file, &timestamp).map_err(|e| MemoError::Io(e))?;
 
         Ok(index)
     }
 
-    /// インデックスにメモを追加
     pub fn add_memo(&self, memo: &MemoDocument) -> Result<(), MemoError> {
-        if let Some(mut index) = self.get_current_index()? {
-            let _lock = IndexLock::acquire(&index.index_dir)?;
-            index.add_memo(memo)?;
-            index.commit()?;
-        }
+        let mut index = {
+            match self.get_current_index()? {
+                Some(index) => index,
+                None => {
+                    // If no index exists, create a new one
+                    self.create_new_index()?
+                }
+            }
+        };
+
+        let _lock = IndexLock::acquire(&index.index_dir)?;
+        index.add_memo(memo)?;
+        index.commit()?;
         Ok(())
     }
 
-    /// インデックスからメモを削除
-    pub fn remove_memo(&self, path: &str) -> Result<(), MemoError> {
+    pub fn remove_memo(&self, memo: &MemoDocument) -> Result<(), MemoError> {
         if let Some(mut index) = self.get_current_index()? {
             let _lock = IndexLock::acquire(&index.index_dir)?;
-            index.remove_memo(path)?;
+            index.remove_memo(memo)?;
             index.commit()?;
         }
         Ok(())

@@ -1,65 +1,33 @@
 use crate::context::MemoContext;
-use crate::error::{MemoError, MemoResult};
-use crate::memo::MemoDocument;
+use crate::error::MemoResult;
+use crate::memo::{MemoDocument, MemoFile};
 use crate::memo_id::MemoId;
 use crate::repository::MemoRepository;
 use crate::search::SearchManager;
-use std::process::Command;
+use crate::utils::editor;
 
 pub fn run(context: &MemoContext) -> MemoResult<()> {
     let memo_id = MemoId::new();
     let relative_path = memo_id.to_relative_path();
 
     let repo = MemoRepository::new(context.clone());
-
     let memo = repo.create_memo(&relative_path, String::new())?;
 
-    open_editor(context, &memo.path)?;
-
-    // インデックスを更新
+    editor::open_editor(context, &memo.path)?;
     update_search_index(context, &memo.path)?;
 
     println!("Memo created: {}", memo_id);
-
     Ok(())
 }
 
 fn update_search_index(context: &MemoContext, memo_path: &std::path::Path) -> MemoResult<()> {
-    // data_dirを取得（memo_dirの親ディレクトリ）
-    let data_dir = context
-        .memo_dir
-        .parent()
-        .unwrap_or(&context.memo_dir)
-        .to_path_buf();
+    let data_dir = context.memo_dir.clone();
+    let index_dir = context.index_dir();
+    let search_manager = SearchManager::new(data_dir, index_dir);
 
-    let search_manager = SearchManager::new(data_dir);
-
-    // メモファイルを読み込んでMemoDocumentに変換
-    if let Ok(memo_file) = crate::memo::MemoFile::from_path(memo_path) {
+    if let Ok(memo_file) = MemoFile::from_path(memo_path) {
         let memo_doc = MemoDocument::from_memo_file(&memo_file);
-
-        // インデックスに追加（エラーは無視）
-        let _ = search_manager.add_memo(&memo_doc);
-    }
-
-    Ok(())
-}
-
-fn open_editor(context: &MemoContext, file_path: &std::path::Path) -> MemoResult<()> {
-    let status = Command::new(&context.editor)
-        .arg(file_path)
-        .status()
-        .map_err(|e| {
-            MemoError::EditorError(format!(
-                "Failed to launch editor '{}': {}",
-                context.editor, e
-            ))
-        })?;
-
-    if !status.success() {
-        return Err(MemoError::EditorError(
-            "Editor exited with non-zero status".to_string(),
-        ));
+        let _ = search_manager.add_memo(&memo_doc)?;
     }
 
     Ok(())

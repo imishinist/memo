@@ -5,7 +5,7 @@ mod commands;
 mod context;
 mod display;
 mod error;
-mod frontmatter;
+mod front_matter;
 mod memo;
 mod memo_id;
 mod repository;
@@ -14,7 +14,7 @@ mod utils;
 
 use commands::search as search_cmd;
 use commands::{add, archive, dir, edit, index, list, show};
-use context::{Context, MemoContext};
+use context::MemoContext;
 use error::MemoError;
 
 #[derive(Parser)]
@@ -67,9 +67,6 @@ fn main() {
         process::exit(1);
     }
 
-    // 検索機能用のContextを作成
-    let context = Context::from_memo_context(&memo_context);
-
     let result = match cli.command {
         Commands::Add => add::run(&memo_context),
         Commands::Edit { id } => edit::run(&memo_context, &id),
@@ -77,8 +74,8 @@ fn main() {
         Commands::List { json } => list::run(&memo_context, json),
         Commands::Dir => dir::run(&memo_context),
         Commands::Archive { targets } => archive::run(&memo_context, &targets),
-        Commands::Index => index::run_index(&context),
-        Commands::Search { query } => search_cmd::run_search(&context, &query),
+        Commands::Index => index::run_index(&memo_context),
+        Commands::Search { query } => search_cmd::run_search(&memo_context, &query),
     };
 
     if let Err(e) = result {

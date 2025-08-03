@@ -3,7 +3,6 @@ use std::fmt;
 #[derive(Debug)]
 pub enum MemoError {
     Io(std::io::Error),
-    IoError(std::io::Error), // 後方互換性のため残す
     YamlError(serde_yaml::Error),
     MemoNotFound(String),
     InvalidId(String),
@@ -17,7 +16,6 @@ impl fmt::Display for MemoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MemoError::Io(err) => write!(f, "IO error: {}", err),
-            MemoError::IoError(err) => write!(f, "IO error: {}", err),
             MemoError::YamlError(err) => write!(f, "YAML error: {}", err),
             MemoError::MemoNotFound(id) => write!(f, "Memo with ID '{}' not found", id),
             MemoError::InvalidId(id) => write!(f, "Invalid memo ID: '{}'", id),
@@ -33,7 +31,6 @@ impl std::error::Error for MemoError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             MemoError::Io(err) => Some(err),
-            MemoError::IoError(err) => Some(err),
             MemoError::YamlError(err) => Some(err),
             _ => None,
         }

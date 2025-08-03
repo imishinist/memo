@@ -61,7 +61,7 @@ impl TestContext {
     pub fn setup_test_memos(&self) -> Vec<MemoFile> {
         vec![
             self.create_memo("2025-01/30/143022.md", TestMemoTemplates::BASIC),
-            self.create_memo("2025-01/30/151545.md", TestMemoTemplates::WITH_FRONTMATTER),
+            self.create_memo("2025-01/30/151545.md", TestMemoTemplates::WITH_FRONT_MATTER),
             self.create_memo("2025-01/29/120000.md", TestMemoTemplates::MULTILINE),
             self.create_memo("2025-01/28/090000.md", TestMemoTemplates::JAPANESE),
         ]
@@ -69,8 +69,7 @@ impl TestContext {
 
     /// 検索インデックスを構築
     pub fn build_search_index(&self) -> Result<(), memo::error::MemoError> {
-        let context = memo::context::Context::from_memo_context(&self.memo_context);
-        memo::commands::index::run_index(&context)
+        memo::commands::index::run_index(&self.memo_context)
     }
 
     /// メモディレクトリのパスを取得
@@ -80,7 +79,11 @@ impl TestContext {
 
     /// アーカイブディレクトリのパスを取得
     pub fn archive_dir(&self) -> PathBuf {
-        self.memo_context.memo_dir.join(".archive")
+        self.memo_context.archive_dir()
+    }
+
+    pub fn index_dir(&self) -> PathBuf {
+        self.memo_context.index_dir()
     }
 }
 
@@ -99,7 +102,7 @@ pub struct TestMemoTemplates;
 impl TestMemoTemplates {
     pub const BASIC: &'static str = "# Basic Memo\n\nThis is a basic test memo.\n\n@test @basic";
 
-    pub const WITH_FRONTMATTER: &'static str = r#"---
+    pub const WITH_FRONT_MATTER: &'static str = r#"---
 title: Test Memo with Frontmatter
 tags: ["@test", "@frontmatter"]
 priority: 1

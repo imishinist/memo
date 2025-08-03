@@ -1,8 +1,7 @@
 use crate::error::MemoError;
-use crate::memo::MemoDocument;
+use crate::memo::{MemoDocument, MemoFile};
 use crate::search::{SearchResult, japanese_tokenizer::JapaneseTokenizer};
-use serde_json::Value as JsonValue;
-use std::path::{Path, PathBuf};
+
 use tantivy::TantivyDocument;
 use tantivy::collector::TopDocs;
 use tantivy::doc;
@@ -11,23 +10,33 @@ use tantivy::schema::Value;
 use tantivy::schema::*;
 use tantivy::*;
 
-/// Tantivyベースの検索インデックス
+use std::path::{Path, PathBuf};
+
+/// Tantivy-based search index for memo documents
 pub struct SearchIndex {
+    #[allow(dead_code)]
+    pub data_dir: PathBuf,
     pub index_dir: PathBuf,
     index: Index,
     writer: IndexWriter,
     reader: IndexReader,
-    // フィールド定義
+
+    // fields
+    id_field: Field,
+    path_field: Field,
+
     content_field: Field,
     title_field: Field,
     tags_field: Field,
-    path_field: Field,
     created_at_field: Field,
 }
 
 impl SearchIndex {
-    /// 新しいインデックスを作成
-    pub fn create<P: AsRef<Path>>(index_dir: P) -> std::result::Result<Self, MemoError> {
+    pub fn create<P: AsRef<Path>>(
+        data_dir: P,
+        index_dir: P,
+    ) -> std::result::Result<Self, MemoError> {
+        let data_dir = data_dir.as_ref().to_path_buf();
         let index_dir = index_dir.as_ref().to_path_buf();
 
         // スキーマを定義
@@ -43,12 +52,13 @@ impl SearchIndex {
             .set_stored();
 
         // 必須フィールド
+        let id_field = schema_builder.add_text_field("id", TEXT | STORED);
+        let path_field = schema_builder.add_text_field("path", STORED);
         let content_field = schema_builder.add_text_field("content", text_options.clone());
 
         // オプショナルフィールド
         let title_field = schema_builder.add_text_field("title", text_options);
         let tags_field = schema_builder.add_facet_field("tags", INDEXED);
-        let path_field = schema_builder.add_text_field("path", STORED);
         let created_at_field = schema_builder.add_date_field("created_at", INDEXED | STORED);
 
         let schema = schema_builder.build();
@@ -66,24 +76,25 @@ impl SearchIndex {
         index.tokenizers().register("lang_ja", japanese_tokenizer);
 
         let writer = index.writer(50_000_000)?;
-
         let reader = index.reader()?;
 
         Ok(Self {
+            data_dir,
             index_dir,
             index,
             writer,
             reader,
+            id_field,
+            path_field,
             content_field,
             title_field,
             tags_field,
-            path_field,
             created_at_field,
         })
     }
 
-    /// 既存のインデックスを開く
-    pub fn open<P: AsRef<Path>>(index_dir: P) -> std::result::Result<Self, MemoError> {
+    pub fn open<P: AsRef<Path>>(data_dir: P, index_dir: P) -> std::result::Result<Self, MemoError> {
+        let data_dir = data_dir.as_ref().to_path_buf();
         let index_dir = index_dir.as_ref().to_path_buf();
 
         let index = Index::open_in_dir(&index_dir)?;
@@ -100,46 +111,48 @@ impl SearchIndex {
         let schema = index.schema();
 
         // フィールドを取得
+        let id_field = schema.get_field("id")?;
+        let path_field = schema.get_field("path")?;
         let content_field = schema.get_field("content")?;
         let title_field = schema.get_field("title")?;
         let tags_field = schema.get_field("tags")?;
-        let path_field = schema.get_field("path")?;
         let created_at_field = schema.get_field("created_at")?;
 
         let writer = index.writer(50_000_000)?;
-
         let reader = index.reader()?;
 
         Ok(Self {
+            data_dir,
             index_dir,
             index,
             writer,
             reader,
+            id_field,
+            path_field,
             content_field,
             title_field,
             tags_field,
-            path_field,
             created_at_field,
         })
     }
 
-    /// メモをインデックスに追加
     pub fn add_memo(&mut self, memo: &MemoDocument) -> std::result::Result<(), MemoError> {
         let mut doc = doc!(
-            self.content_field => memo.content.clone(),
+            self.id_field => memo.id.to_string(),
             self.path_field => memo.path.clone(),
+            self.content_field => memo.content.clone(),
             self.created_at_field => DateTime::from_timestamp_secs(memo.created_at.timestamp())
         );
 
         // オプショナルフィールド
-        if let Some(frontmatter) = &memo.frontmatter {
+        if let Some(front_matter) = &memo.metadata {
             // titleフィールド
-            if let Some(title) = frontmatter.get("title").and_then(|v| v.as_str()) {
+            if let Some(title) = front_matter.get("title").and_then(|v| v.as_str()) {
                 doc.add_text(self.title_field, title);
             }
 
             // tagsフィールド
-            if let Some(tags) = frontmatter.get("tags").and_then(|v| v.as_array()) {
+            if let Some(tags) = front_matter.get("tags").and_then(|v| v.as_array()) {
                 for tag in tags {
                     if let Some(tag_str) = tag.as_str() {
                         doc.add_facet(self.tags_field, Facet::from(&format!("/{}", tag_str)));
@@ -163,13 +176,12 @@ impl SearchIndex {
         }
 
         self.writer.add_document(doc)?;
-
         Ok(())
     }
 
     /// メモをインデックスから削除
-    pub fn remove_memo(&mut self, path: &str) -> std::result::Result<(), MemoError> {
-        let term = Term::from_field_text(self.path_field, path);
+    pub fn remove_memo(&mut self, memo: &MemoDocument) -> std::result::Result<(), MemoError> {
+        let term = Term::from_field_text(self.id_field, &memo.id.as_str());
         self.writer.delete_term(term);
         Ok(())
     }
@@ -189,23 +201,12 @@ impl SearchIndex {
         let query_parser =
             QueryParser::for_index(&self.index, vec![self.content_field, self.title_field]);
 
-        // クエリをパース
         let query = query_parser.parse_query(query_str)?;
-
-        // 検索実行
         let top_docs = searcher.search(&query, &TopDocs::with_limit(100))?;
 
         let mut results = Vec::new();
-
         for (score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
-
-            // ドキュメントからMemoDocumentを復元
-            let content = retrieved_doc
-                .get_first(self.content_field)
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
 
             let path = retrieved_doc
                 .get_first(self.path_field)
@@ -213,53 +214,9 @@ impl SearchIndex {
                 .unwrap_or("")
                 .to_string();
 
-            let created_at = retrieved_doc
-                .get_first(self.created_at_field)
-                .and_then(|v| v.as_datetime())
-                .and_then(|dt| chrono::DateTime::from_timestamp(dt.into_timestamp_secs(), 0))
-                .unwrap_or_else(|| {
-                    // デフォルトとしてUnixエポック時刻を使用
-                    chrono::DateTime::from_timestamp(0, 0).expect("Unix epoch should be valid")
-                });
-
-            // frontmatterを復元（簡略化）
-            let mut frontmatter = None;
-
-            // titleを取得
-            if let Some(title_value) = retrieved_doc
-                .get_first(self.title_field)
-                .and_then(|v| v.as_str())
-            {
-                let mut fm = serde_json::Map::new();
-                fm.insert(
-                    "title".to_string(),
-                    JsonValue::String(title_value.to_string()),
-                );
-                frontmatter = Some(JsonValue::Object(fm));
-            }
-
-            // metadataは一時的に無効化
-            /*
-            if let Some(metadata_value) = retrieved_doc.get_first(self.metadata_field).and_then(|v| v.as_json()) {
-                if let Some(ref mut fm) = frontmatter {
-                    if let (Some(fm_obj), Some(meta_obj)) = (fm.as_object_mut(), metadata_value.as_object()) {
-                        for (k, v) in meta_obj {
-                            fm_obj.insert(k.clone(), v.clone());
-                        }
-                    }
-                } else {
-                    frontmatter = Some(metadata_value.clone());
-                }
-            }
-            */
-
-            let memo = MemoDocument {
-                content,
-                path,
-                created_at,
-                frontmatter,
-            };
-
+            // get real data from the path
+            let memo = MemoFile::from_path(&path)?;
+            let memo = MemoDocument::from_memo_file(&memo);
             results.push(SearchResult { memo, score });
         }
 

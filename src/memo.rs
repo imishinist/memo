@@ -1,91 +1,40 @@
 use crate::error::MemoResult;
-use crate::frontmatter::parse_memo_content;
+use crate::front_matter;
 use crate::memo_id::MemoId;
-use chrono::{DateTime, Local};
-use serde_yaml::Value;
+
+use chrono::{DateTime, Local, Utc};
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// 検索機能で使用するメモドキュメント構造体
+/// MemoDocument is used for search functionality and represents a memo document with its content,
+/// path, creation date, and front matter.
 #[derive(Debug, Clone)]
 pub struct MemoDocument {
+    pub id: MemoId,
     pub content: String,
     pub path: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub frontmatter: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 impl MemoDocument {
-    /// MemoFileからMemoDocumentに変換
     pub fn from_memo_file(memo_file: &MemoFile) -> Self {
-        // ファイルの作成日時を取得（ファイル名から推測）
-        let created_at =
-            Self::extract_datetime_from_path(&memo_file.path).unwrap_or_else(|| chrono::Utc::now());
-
-        // frontmatterをHashMapからserde_json::Valueに変換
-        let frontmatter = memo_file.frontmatter.as_ref().map(|fm| {
-            // serde_yaml::Value から serde_json::Value に変換
-            yaml_to_json_value(fm)
-        });
+        let created_at = memo_file.id.get_datetime().to_utc();
+        let metadata = memo_file.metadata.as_ref().map(yaml_to_json_value);
 
         Self {
+            id: memo_file.id.clone(),
             content: memo_file.content.clone(),
             path: memo_file.path.to_string_lossy().to_string(),
             created_at,
-            frontmatter,
+            metadata,
         }
-    }
-
-    /// ファイルパスから日時を抽出（YYYY-MM/DD/HHMMSS.md の形式）
-    fn extract_datetime_from_path(path: &Path) -> Option<chrono::DateTime<chrono::Utc>> {
-        let components: Vec<_> = path
-            .components()
-            .rev()
-            .take(3)
-            .map(|c| c.as_os_str().to_string_lossy())
-            .collect();
-
-        if components.len() >= 3 {
-            let filename = &components[0];
-            let day = &components[1];
-            let year_month = &components[2];
-
-            let stem = Path::new(filename.as_ref()).file_stem()?.to_string_lossy();
-
-            // YYYY-MM/DD/HHMMSS の形式をパース
-            let datetime_str = format!("{}/{}/{}", year_month, day, stem);
-
-            // 2025-01/30/143022 -> 2025-01-30 14:30:22
-            let parts: Vec<&str> = datetime_str.split('/').collect();
-            if parts.len() == 3 {
-                let year_month = parts[0];
-                let day = parts[1];
-                let time = parts[2];
-
-                if time.len() == 6 {
-                    let hour = &time[0..2];
-                    let minute = &time[2..4];
-                    let second = &time[4..6];
-
-                    let full_datetime =
-                        format!("{}-{} {}:{}:{}", year_month, day, hour, minute, second);
-
-                    return chrono::NaiveDateTime::parse_from_str(
-                        &full_datetime,
-                        "%Y-%m-%d %H:%M:%S",
-                    )
-                    .ok()
-                    .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, chrono::Utc));
-                }
-            }
-        }
-
-        None
     }
 }
 
-/// serde_yaml::Value から serde_json::Value に変換
+/// Convert serde_yaml::Value to serde_json::Value
 fn yaml_to_json_value(fm: &HashMap<String, serde_yaml::Value>) -> serde_json::Value {
     let mut map = serde_json::Map::new();
     for (k, v) in fm {
@@ -94,7 +43,7 @@ fn yaml_to_json_value(fm: &HashMap<String, serde_yaml::Value>) -> serde_json::Va
     serde_json::Value::Object(map)
 }
 
-/// serde_yaml::Value を serde_json::Value に変換
+/// Convert serde_yaml::Value to serde_json::Value
 fn yaml_value_to_json(value: &serde_yaml::Value) -> serde_json::Value {
     match value {
         serde_yaml::Value::Null => serde_json::Value::Null,
@@ -128,95 +77,94 @@ fn yaml_value_to_json(value: &serde_yaml::Value) -> serde_json::Value {
     }
 }
 
-/// メモファイルを表現する構造体
+/// MemoFile represents a memo file with its path, content, front matter, and metadata.
 #[derive(Debug, Clone)]
 pub struct MemoFile {
-    pub path: PathBuf,
     pub id: MemoId,
+    pub path: PathBuf,
+
     pub content: String,
-    pub frontmatter: Option<HashMap<String, Value>>,
-    pub frontmatter_error: Option<String>,
+    pub metadata: Option<HashMap<String, serde_yaml::Value>>,
+    pub metadata_error: Option<String>,
+
     pub modified: DateTime<Local>,
 }
 
 impl MemoFile {
     pub fn from_path<P: AsRef<Path>>(path: P) -> MemoResult<Self> {
         let path = path.as_ref().to_path_buf();
-        let content = fs::read_to_string(&path)?;
-        let parsed = parse_memo_content(&content);
 
         let id = MemoId::from_path(&path)?;
-        let modified = Self::get_modified_time(&path)?;
 
+        let content = fs::read_to_string(&path)?;
+        let parsed = front_matter::parse_memo_content(&content);
+
+        let modified = Self::get_modified_time(&path)?;
         Ok(MemoFile {
-            path,
             id,
+            path,
             content: parsed.content,
-            frontmatter: parsed.frontmatter,
-            frontmatter_error: parsed.frontmatter_error,
+            metadata: parsed.front_matter,
+            metadata_error: parsed.front_matter_error,
             modified,
         })
     }
 
     pub fn create<P: AsRef<Path>>(path: P, content: String) -> MemoResult<Self> {
         let path = path.as_ref().to_path_buf();
+        let id = MemoId::from_path(&path)?;
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-
         fs::write(&path, &content)?;
 
-        let parsed = parse_memo_content(&content);
-        let id = MemoId::from_path(&path)?;
+        let parsed = front_matter::parse_memo_content(&content);
         let modified = Self::get_modified_time(&path)?;
 
         Ok(MemoFile {
-            path,
             id,
+            path,
             content: parsed.content,
-            frontmatter: parsed.frontmatter,
-            frontmatter_error: parsed.frontmatter_error,
+            metadata: parsed.front_matter,
+            metadata_error: parsed.front_matter_error,
             modified,
         })
     }
 
     pub fn move_to<P: AsRef<Path>>(&self, new_path: P) -> MemoResult<MemoFile> {
         let new_path = new_path.as_ref().to_path_buf();
-
         if let Some(parent) = new_path.parent() {
             fs::create_dir_all(parent)?;
         }
-
         fs::rename(&self.path, &new_path)?;
 
-        let new_id = MemoId::from_path(&new_path)?;
+        let id = self.id.clone();
         let modified = Self::get_modified_time(&new_path)?;
         Ok(MemoFile {
+            id,
             path: new_path,
-            id: new_id,
             content: self.content.clone(),
-            frontmatter: self.frontmatter.clone(),
-            frontmatter_error: self.frontmatter_error.clone(),
+            metadata: self.metadata.clone(),
+            metadata_error: self.metadata_error.clone(),
             modified,
         })
     }
 
-    /// ファイルの更新日時を取得
     fn get_modified_time(path: &Path) -> MemoResult<DateTime<Local>> {
         let metadata = fs::metadata(path)?;
         let modified = metadata.modified()?;
         Ok(DateTime::from(modified))
     }
 
-    pub fn preview(&self, max_length: usize) -> String {
+    pub fn preview(&self, max_chars: usize) -> String {
         let content = self.content.trim();
-        if content.chars().count() <= max_length {
-            content.to_string()
-        } else {
-            let truncated: String = content.chars().take(max_length).collect();
-            format!("{}...", truncated)
+        if content.chars().count() <= max_chars {
+            return content.to_string();
         }
+
+        let truncated: String = content.chars().take(max_chars).collect();
+        format!("{}...", truncated)
     }
 }
 
@@ -225,37 +173,101 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_preview_with_japanese_text() {
-        let memo = MemoFile {
-            path: std::path::PathBuf::from("test.md"),
-            id: MemoId::from_str("20250130143022").unwrap(),
-            content: "これは日本語のテストです。長いテキストをテストします。".to_string(),
-            frontmatter: None,
-            frontmatter_error: None,
-            modified: chrono::Local::now(),
-        };
+    fn test_memo_document_from_memo_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+        fs::create_dir_all(memo_path.parent().unwrap()).unwrap();
+        fs::write(
+            &memo_path,
+            r#"---
+title: "Test Memo"
+tags: ["@tag1", "@tag2"]
+---
+Test content"#,
+        )
+        .unwrap();
 
-        let preview = memo.preview(10);
-        assert_eq!(preview, "これは日本語のテスト...");
+        let memo_file = MemoFile::from_path(&memo_path).unwrap();
 
-        // 文字数が正確にカウントされることを確認
-        let preview_chars: Vec<char> = preview.chars().collect();
-        let expected_chars = 10 + 3; // 10文字 + "..."
-        assert_eq!(preview_chars.len(), expected_chars);
+        let memo_doc = MemoDocument::from_memo_file(&memo_file);
+        assert_eq!(memo_doc.content, "Test content");
+        assert_eq!(memo_doc.path, memo_path.to_string_lossy());
+        assert_eq!(memo_doc.created_at.timestamp(), 1738215022);
+        assert_eq!(
+            memo_doc.metadata,
+            Some(serde_json::json!({
+                "title": "Test Memo",
+                "tags": ["@tag1", "@tag2"]
+            }))
+        );
     }
 
     #[test]
-    fn test_preview_short_japanese_text() {
-        let memo = MemoFile {
-            path: std::path::PathBuf::from("test.md"),
-            id: MemoId::from_str("20250130143022").unwrap(),
-            content: "短いテスト".to_string(),
-            frontmatter: None,
-            frontmatter_error: None,
-            modified: chrono::Local::now(),
-        };
+    fn test_memo_file_from_path() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+        fs::create_dir_all(memo_path.parent().unwrap()).unwrap();
+        fs::write(&memo_path, "Test content").unwrap();
 
-        let preview = memo.preview(10);
-        assert_eq!(preview, "短いテスト");
+        let memo_file = MemoFile::from_path(&memo_path).unwrap();
+        assert_eq!(memo_file.id.as_str(), "20250130143022");
+        assert_eq!(memo_file.content, "Test content");
+        assert_eq!(memo_file.path, memo_path);
+    }
+
+    #[test]
+    fn test_memo_file_create() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+
+        let memo_file = MemoFile::create(&memo_path, "Test content".to_string()).unwrap();
+        assert_eq!(memo_file.id.as_str(), "20250130143022");
+        assert_eq!(memo_file.content, "Test content");
+        assert_eq!(memo_file.path, memo_path);
+
+        // ファイルが実際に作成されていることを確認
+        assert!(memo_path.exists());
+    }
+
+    #[test]
+    fn test_memo_file_move_to() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let old_path = temp_dir.path().join("2025-01/30/143022.md");
+        let new_path = temp_dir.path().join(".archive/2025-01/30/143022.md");
+
+        // 旧ファイルを作成
+        fs::create_dir_all(old_path.parent().unwrap()).unwrap();
+        fs::write(&old_path, "Test content").unwrap();
+
+        let memo_file = MemoFile::from_path(&old_path).unwrap();
+        let moved_memo_file = memo_file.move_to(&new_path).unwrap();
+
+        assert_eq!(moved_memo_file.id.as_str(), "20250130143022");
+        assert_eq!(moved_memo_file.path, new_path);
+        assert!(!old_path.exists());
+        assert!(new_path.exists());
+    }
+
+    #[test]
+    fn test_memo_file_preview() {
+        let memo = MemoFile {
+            id: MemoId::from_str("20250130143022").unwrap(),
+            path: Default::default(),
+            content: "a".repeat(200).to_string(),
+            metadata: None,
+            metadata_error: None,
+            modified: Default::default(),
+        };
+        assert_eq!(memo.preview(100).len(), 103);
+
+        let memo = MemoFile {
+            id: MemoId::from_str("20250130143022").unwrap(),
+            path: Default::default(),
+            content: "あ".repeat(200).to_string(),
+            metadata: None,
+            metadata_error: None,
+            modified: Default::default(),
+        };
+        assert_eq!(memo.preview(100).chars().count(), 103);
     }
 }

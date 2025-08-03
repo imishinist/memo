@@ -3,6 +3,7 @@ use std::env;
 use std::path::PathBuf;
 
 /// Get the memo data directory following XDG Base Directory specification
+/// `XDG_DATA_HOME/memo` or `~/.local/share/memo` if not set.
 pub fn get_memo_dir() -> MemoResult<PathBuf> {
     get_memo_dir_with_override(None)
 }
@@ -15,19 +16,18 @@ pub fn get_memo_dir_with_override(override_dir: Option<PathBuf>) -> MemoResult<P
     if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
         return Ok(PathBuf::from(xdg_data_home).join("memo"));
     }
-
     if let Some(data_home) = dirs::data_dir() {
-        Ok(data_home.join("memo"))
-    } else {
-        let home_dir = dirs::home_dir().ok_or_else(|| {
-            MemoError::IoError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Could not determine home directory",
-            ))
-        })?;
-
-        Ok(home_dir.join(".local").join("share").join("memo"))
+        return Ok(data_home.join("memo"));
     }
+
+    let home_dir = dirs::home_dir().ok_or_else(|| {
+        MemoError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Could not determine home directory",
+        ))
+    })?;
+
+    Ok(home_dir.join(".local").join("share").join("memo"))
 }
 
 #[cfg(test)]

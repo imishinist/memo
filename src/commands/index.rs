@@ -1,21 +1,19 @@
-use crate::context::Context;
+use crate::context::MemoContext;
 use crate::error::MemoError;
 use crate::repository::MemoRepository;
 use crate::search::{IndexLock, SearchManager};
 
-pub fn run_index(ctx: &Context) -> Result<(), MemoError> {
+pub fn run_index(ctx: &MemoContext) -> Result<(), MemoError> {
     println!("Building search index...");
 
-    let search_manager = SearchManager::new(ctx.data_dir.clone());
-    let repo = MemoRepository::from_data_dir(ctx.data_dir.clone());
+    let data_dir = ctx.memo_dir.clone();
+    let index_dir = ctx.index_dir();
 
-    // 新しいインデックスを作成
+    let repo = MemoRepository::new(ctx.clone());
+    let search_manager = SearchManager::new(data_dir, index_dir);
+
     let mut index = search_manager.create_new_index()?;
-
-    // ロックを取得
     let _lock = IndexLock::acquire(&index.index_dir)?;
-
-    // 全メモを取得してインデックスに追加
     let memos = repo.list_all_memo_documents()?;
     let total = memos.len();
 
