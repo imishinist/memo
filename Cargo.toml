@@ -12,7 +12,7 @@ serde_json = "1.0.141"
 serde_yaml = "0.9.34"
 tantivy = "0.24"
 fs2 = "0.4"
-lindera = { version = "0.44.1", features = ["ipadic", "lindera-ipadic"] }
+lindera = { version = "0.45.0", features = ["ipadic", "lindera-ipadic"] }
 
 [dev-dependencies]
 tempfile = "3.20.0"
