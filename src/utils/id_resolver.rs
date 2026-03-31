@@ -32,8 +32,8 @@ mod tests {
         fs::create_dir_all(&test_date_dir).unwrap();
 
         // Create test memo files
-        fs::write(test_date_dir.join("143022.md"), "Test memo content").unwrap();
-        fs::write(test_date_dir.join("151545.md"), "Another memo").unwrap();
+        fs::write(test_date_dir.join("20250130143022.md"), "Test memo content").unwrap();
+        fs::write(test_date_dir.join("20250130151545.md"), "Another memo").unwrap();
 
         (temp_dir, memo_dir)
     }
@@ -47,7 +47,7 @@ mod tests {
 
         let path = result.unwrap();
         assert!(path.exists());
-        assert!(path.to_string_lossy().contains("143022.md"));
+        assert!(path.to_string_lossy().contains("20250130143022.md"));
     }
 
     #[test]

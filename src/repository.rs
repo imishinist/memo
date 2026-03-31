@@ -175,7 +175,7 @@ mod tests {
         let repo = MemoRepository::new(context);
 
         let memo = repo
-            .create_memo("2025-01/30/143022.md", "Test content".to_string())
+            .create_memo("2025-01/30/20250130143022.md", "Test content".to_string())
             .unwrap();
 
         assert_eq!(memo.content, "Test content");
@@ -188,9 +188,9 @@ mod tests {
         let (_temp_dir, context) = create_test_context();
         let repo = MemoRepository::new(context);
 
-        repo.create_memo("2025-01/30/143022.md", "Memo 1".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Memo 1".to_string())
             .unwrap();
-        repo.create_memo("2025-01/30/151545.md", "Memo 2".to_string())
+        repo.create_memo("2025-01/30/20250130151545.md", "Memo 2".to_string())
             .unwrap();
 
         let memos = repo.list_all_memos().unwrap();
@@ -204,7 +204,7 @@ mod tests {
         let (_temp_dir, context) = create_test_context();
         let repo = MemoRepository::new(context);
 
-        repo.create_memo("2025-01/30/143022.md", "Test memo".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Test memo".to_string())
             .unwrap();
 
         let memo = repo.find_memo_by_id("20250130143022").unwrap();
@@ -221,7 +221,7 @@ mod tests {
         let repo = MemoRepository::new(context);
 
         let memo = repo
-            .create_memo("2025-01/30/143022.md", "Test memo".to_string())
+            .create_memo("2025-01/30/20250130143022.md", "Test memo".to_string())
             .unwrap();
         let archived = repo.archive_memo(&memo).unwrap();
 
@@ -236,10 +236,10 @@ mod tests {
         let repo = MemoRepository::new(context);
 
         let memo1 = repo
-            .create_memo("2025-01/30/143022.md", "Memo 1".to_string())
+            .create_memo("2025-01/30/20250130143022.md", "Memo 1".to_string())
             .unwrap();
         let memo2 = repo
-            .create_memo("2025-01/30/151545.md", "Memo 2".to_string())
+            .create_memo("2025-01/30/20250130151545.md", "Memo 2".to_string())
             .unwrap();
 
         let archived = repo.archive_memos(vec![memo1, memo2]).unwrap();
@@ -256,11 +256,11 @@ mod tests {
         let (_temp_dir, context) = create_test_context();
         let repo = MemoRepository::new(context);
 
-        repo.create_memo("2025-01/30/143022.md", "Memo 1".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Memo 1".to_string())
             .unwrap();
-        repo.create_memo("2025-01/30/151545.md", "Memo 2".to_string())
+        repo.create_memo("2025-01/30/20250130151545.md", "Memo 2".to_string())
             .unwrap();
-        repo.create_memo("2025-02/01/151545.md", "Memo 3".to_string())
+        repo.create_memo("2025-02/01/20250201151545.md", "Memo 3".to_string())
             .unwrap();
 
         let archived = repo.archive_directory("2025-01/30").unwrap();
@@ -270,9 +270,9 @@ mod tests {
             assert!(memo.path.to_string_lossy().contains(".archive"));
         }
         assert!(repo.memo_dir().join("2025-01/30").exists());
-        assert!(!repo.memo_dir().join("2025-01/30/143022.md").exists());
-        assert!(!repo.memo_dir().join("2025-01/30/151545.md").exists());
-        assert!(repo.memo_dir().join("2025-02/01/151545.md").exists());
+        assert!(!repo.memo_dir().join("2025-01/30/20250130143022.md").exists());
+        assert!(!repo.memo_dir().join("2025-01/30/20250130151545.md").exists());
+        assert!(repo.memo_dir().join("2025-02/01/20250201151545.md").exists());
         assert!(repo.memo_dir().join("2025-02/01").exists());
     }
 }

@@ -13,7 +13,7 @@ mod search;
 mod utils;
 
 use commands::search as search_cmd;
-use commands::{add, archive, dir, edit, index, list, show, tags, template};
+use commands::{add, archive, dir, edit, index, list, migrate, show, tags, template};
 use context::MemoContext;
 use error::MemoError;
 
@@ -56,6 +56,12 @@ enum Commands {
     Search { query: String },
     /// List all tags with counts
     Tags,
+    /// Migrate old filename format (HHMMSS.md) to new format (YYYYMMDDHHmmss.md)
+    Migrate {
+        /// Show what would be renamed without actually renaming
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Manage templates
     Template {
         #[command(subcommand)]
@@ -101,6 +107,7 @@ fn main() {
         Commands::Index => index::run_index(&memo_context),
         Commands::Search { query } => search_cmd::run_search(&memo_context, &query),
         Commands::Tags => tags::run(&memo_context),
+        Commands::Migrate { dry_run } => migrate::run(&memo_context, dry_run),
         Commands::Template { command } => match command {
             TemplateCommands::Add { name } => template::run_add(&memo_context, &name),
             TemplateCommands::Edit { name } => template::run_edit(&memo_context, &name),

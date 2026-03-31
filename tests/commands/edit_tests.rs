@@ -6,7 +6,7 @@ fn test_edit_existing_memo() {
     let context = TestContext::new();
 
     // テストメモを作成
-    context.create_memo("2025-01/30/143022.md", "Original content");
+    context.create_memo("2025-01/30/20250130143022.md", "Original content");
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_success(&output);
@@ -19,13 +19,13 @@ fn test_edit_with_content_modification() {
     let context = TestContext::with_editor(script_path.to_str().unwrap());
 
     // 初期内容でメモを作成
-    context.create_memo("2025-01/30/143022.md", "Original content");
+    context.create_memo("2025-01/30/20250130143022.md", "Original content");
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_success(&output);
 
     // ファイル内容が更新されていることを確認
-    let memo_path = context.memo_dir().join("2025-01/30/143022.md");
+    let memo_path = context.memo_dir().join("2025-01/30/20250130143022.md");
     let content = fs::read_to_string(&memo_path).unwrap();
     assert!(content.contains("Modified content by editor"));
 }
@@ -54,7 +54,7 @@ fn test_edit_editor_not_found() {
     let context = TestContext::with_editor(&mock_editor_nonexistent());
 
     // テストメモを作成
-    context.create_memo("2025-01/30/143022.md", "Test content");
+    context.create_memo("2025-01/30/20250130143022.md", "Test content");
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_failure(&output);
@@ -66,7 +66,7 @@ fn test_edit_editor_exits_with_error() {
     let context = TestContext::with_editor(&mock_editor_fail());
 
     // テストメモを作成
-    context.create_memo("2025-01/30/143022.md", "Test content");
+    context.create_memo("2025-01/30/20250130143022.md", "Test content");
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_failure(&output);
@@ -79,13 +79,13 @@ fn test_edit_memo_with_front_matter() {
     let context = TestContext::with_editor(script_path.to_str().unwrap());
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_success(&output);
 
     // フロントマターが保持されていることを確認
-    let memo_path = context.memo_dir().join("2025-01/30/143022.md");
+    let memo_path = context.memo_dir().join("2025-01/30/20250130143022.md");
     let content = fs::read_to_string(&memo_path).unwrap();
     assert!(content.contains("title: Test Memo with Frontmatter"));
     assert!(content.contains("tags: [\"@test\", \"@frontmatter\"]"));
@@ -103,7 +103,7 @@ fn test_edit_adds_front_matter() {
 
     // 通常のメモを作成
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         "Original content without frontmatter",
     );
 
@@ -112,7 +112,7 @@ fn test_edit_adds_front_matter() {
     assert_command_success(&output);
 
     // 新しいフロントマターが追加されていることを確認
-    let memo_path = context.memo_dir().join("2025-01/30/143022.md");
+    let memo_path = context.memo_dir().join("2025-01/30/20250130143022.md");
     let content = fs::read_to_string(&memo_path).unwrap();
     assert!(content.contains("title: Added Frontmatter"));
     assert!(content.contains("@added"));
@@ -124,13 +124,13 @@ fn test_edit_empty_memo() {
     let context = TestContext::with_editor(script_path.to_str().unwrap());
 
     // 空のメモを作成
-    context.create_memo("2025-01/30/143022.md", "");
+    context.create_memo("2025-01/30/20250130143022.md", "");
 
     let output = context.run_command(&["edit", "20250130143022"]);
     assert_command_success(&output);
 
     // 内容が追加されていることを確認
-    let memo_path = context.memo_dir().join("2025-01/30/143022.md");
+    let memo_path = context.memo_dir().join("2025-01/30/20250130143022.md");
     let content = fs::read_to_string(&memo_path).unwrap();
     assert!(content.contains("Content added to empty memo"));
 }
@@ -142,7 +142,7 @@ fn test_edit_memo_with_special_characters() {
 
     // 特殊文字を含むメモを作成
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
@@ -151,7 +151,7 @@ fn test_edit_memo_with_special_characters() {
     assert_command_success(&output);
 
     // 特殊文字が正しく処理されていることを確認
-    let memo_path = context.memo_dir().join("2025-01/30/143022.md");
+    let memo_path = context.memo_dir().join("2025-01/30/20250130143022.md");
     let content = fs::read_to_string(&memo_path).unwrap();
     assert!(content.contains("特殊文字"));
     assert!(content.contains("🚀"));
@@ -167,7 +167,7 @@ mod edit_integration_tests {
         let context = TestContext::with_editor(script_path.to_str().unwrap());
 
         // メモを作成
-        context.create_memo("2025-01/30/143022.md", "Original content");
+        context.create_memo("2025-01/30/20250130143022.md", "Original content");
 
         // メモを編集
         let edit_output = context.run_command(&["edit", "20250130143022"]);
@@ -185,7 +185,7 @@ mod edit_integration_tests {
         let context = TestContext::with_editor(script_path.to_str().unwrap());
 
         // メモを作成
-        context.create_memo("2025-01/30/143022.md", "Original content");
+        context.create_memo("2025-01/30/20250130143022.md", "Original content");
 
         // メモを編集
         let edit_output = context.run_command(&["edit", "20250130143022"]);

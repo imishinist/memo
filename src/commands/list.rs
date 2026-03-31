@@ -108,9 +108,9 @@ mod tests {
         let repo = MemoRepository::new(context.clone());
 
         // テストメモを作成
-        repo.create_memo("2025-01/30/143022.md", "Test memo 1".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Test memo 1".to_string())
             .unwrap();
-        repo.create_memo("2025-01/30/151545.md", "Test memo 2".to_string())
+        repo.create_memo("2025-01/30/20250130151545.md", "Test memo 2".to_string())
             .unwrap();
 
         let result = run(&context, false, None);
@@ -123,7 +123,7 @@ mod tests {
         let repo = MemoRepository::new(context.clone());
 
         // テストメモを作成
-        repo.create_memo("2025-01/30/143022.md", "Test memo".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Test memo".to_string())
             .unwrap();
 
         let result = run(&context, true, None);

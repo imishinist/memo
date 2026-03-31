@@ -32,8 +32,8 @@ fn test_index_with_front_matter_memos() {
     let context = TestContext::new();
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
-    context.create_memo("2025-01/30/151545.md", TestMemoTemplates::BASIC);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130151545.md", TestMemoTemplates::BASIC);
 
     let output = context.run_command(&["index"]);
 
@@ -47,12 +47,12 @@ fn test_index_overwrites_existing() {
     let context = TestContext::new();
 
     // 最初のインデックス構築
-    context.create_memo("2025-01/30/143022.md", "First memo");
+    context.create_memo("2025-01/30/20250130143022.md", "First memo");
     let output1 = context.run_command(&["index"]);
     assert_command_success(&output1);
 
     // 新しいメモを追加
-    context.create_memo("2025-01/30/151545.md", "Second memo");
+    context.create_memo("2025-01/30/20250130151545.md", "Second memo");
 
     // インデックス再構築を試行
     let output2 = context.run_command(&["index"]);
@@ -66,7 +66,7 @@ fn test_index_with_japanese_content() {
     let context = TestContext::new();
 
     // 日本語メモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::JAPANESE);
 
     let output = context.run_command(&["index"]);
     assert_command_success(&output);
@@ -79,7 +79,7 @@ fn test_index_with_special_characters() {
 
     // 特殊文字を含むメモを作成
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
@@ -96,7 +96,7 @@ mod integration_with_search {
     #[test]
     fn test_index_enables_search() {
         let context = TestContext::new();
-        context.create_memo("2025-01/30/143022.md", "Searchable content test");
+        context.create_memo("2025-01/30/20250130143022.md", "Searchable content test");
 
         let index_output = context.run_command(&["index"]);
         assert_command_success(&index_output);
@@ -142,7 +142,7 @@ settings:
 
 This memo contains deeply nested metadata structures to test indexing capabilities."#;
 
-    context.create_memo("2025-01/30/143022.md", complex_metadata_memo);
+    context.create_memo("2025-01/30/20250130143022.md", complex_metadata_memo);
 
     let output = context.run_command(&["index"]);
 
@@ -188,9 +188,9 @@ nested_arrays: [[1, 2], [3, 4]]
 
 Testing array data types in metadata."#;
 
-    context.create_memo("2025-01/30/143022.md", numeric_metadata);
-    context.create_memo("2025-01/30/151545.md", boolean_metadata);
-    context.create_memo("2025-01/30/160000.md", array_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", numeric_metadata);
+    context.create_memo("2025-01/30/20250130151545.md", boolean_metadata);
+    context.create_memo("2025-01/30/20250130160000.md", array_metadata);
 
     let output = context.run_command(&["index"]);
 
@@ -231,8 +231,8 @@ Testing large metadata structures."#,
         serde_json::to_string(&(0..100).collect::<Vec<i32>>()).unwrap()
     );
 
-    context.create_memo("2025-01/30/143022.md", &edge_case_metadata);
-    context.create_memo("2025-01/30/151545.md", &large_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", &edge_case_metadata);
+    context.create_memo("2025-01/30/20250130151545.md", &large_metadata);
 
     let output = context.run_command(&["index"]);
 
@@ -262,8 +262,8 @@ tags: ["@valid", "@test"]
 
 This memo has valid frontmatter."#;
 
-    context.create_memo("2025-01/30/143022.md", broken_frontmatter);
-    context.create_memo("2025-01/30/151545.md", valid_frontmatter);
+    context.create_memo("2025-01/30/20250130143022.md", broken_frontmatter);
+    context.create_memo("2025-01/30/20250130151545.md", valid_frontmatter);
 
     let output = context.run_command(&["index"]);
 
@@ -283,7 +283,7 @@ fn test_index_metadata_consistency_across_rebuilds() {
         &["@consistency", "@test"],
         "Testing metadata consistency across index rebuilds.",
     );
-    context.create_memo("2025-01/30/143022.md", &metadata_memo);
+    context.create_memo("2025-01/30/20250130143022.md", &metadata_memo);
 
     // Build index first time
     let output1 = context.run_command(&["index"]);

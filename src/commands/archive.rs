@@ -107,11 +107,11 @@ mod tests {
     fn setup_test_memos(context: &MemoContext) {
         let repo = MemoRepository::new(context.clone());
 
-        repo.create_memo("2025-01/30/143022.md", "Test memo 1".to_string())
+        repo.create_memo("2025-01/30/20250130143022.md", "Test memo 1".to_string())
             .unwrap();
-        repo.create_memo("2025-01/30/151545.md", "Test memo 2".to_string())
+        repo.create_memo("2025-01/30/20250130151545.md", "Test memo 2".to_string())
             .unwrap();
-        repo.create_memo("2025-01/29/120000.md", "Test memo 3".to_string())
+        repo.create_memo("2025-01/29/20250129120000.md", "Test memo 3".to_string())
             .unwrap();
     }
 
@@ -120,14 +120,14 @@ mod tests {
         let (_temp_dir, context) = create_test_context();
         setup_test_memos(&context);
 
-        let targets = vec!["2025-01/30/143022".to_string()];
+        let targets = vec!["2025-01/30/20250130143022".to_string()];
         let result = run(&context, &targets);
 
         assert!(result.is_ok());
 
-        assert!(!context.memo_dir.join("2025-01/30/143022.md").exists());
+        assert!(!context.memo_dir.join("2025-01/30/20250130143022.md").exists());
 
-        assert!(context.archive_dir().join("2025-01/30/143022.md").exists());
+        assert!(context.archive_dir().join("2025-01/30/20250130143022.md").exists());
     }
 
     #[test]
@@ -136,20 +136,20 @@ mod tests {
         setup_test_memos(&context);
 
         let targets = vec![
-            "2025-01/30/143022.md".to_string(),
-            "2025-01/30/151545.md".to_string(),
+            "2025-01/30/20250130143022.md".to_string(),
+            "2025-01/30/20250130151545.md".to_string(),
         ];
         let result = run(&context, &targets);
 
         assert!(result.is_ok());
 
-        assert!(!context.memo_dir.join("2025-01/30/143022.md").exists());
-        assert!(!context.memo_dir.join("2025-01/30/151545.md").exists());
+        assert!(!context.memo_dir.join("2025-01/30/20250130143022.md").exists());
+        assert!(!context.memo_dir.join("2025-01/30/20250130151545.md").exists());
 
-        assert!(context.archive_dir().join("2025-01/30/143022.md").exists());
-        assert!(context.archive_dir().join("2025-01/30/151545.md").exists());
+        assert!(context.archive_dir().join("2025-01/30/20250130143022.md").exists());
+        assert!(context.archive_dir().join("2025-01/30/20250130151545.md").exists());
 
-        assert!(context.memo_dir.join("2025-01/29/120000.md").exists());
+        assert!(context.memo_dir.join("2025-01/29/20250129120000.md").exists());
     }
 
     #[test]
@@ -162,13 +162,13 @@ mod tests {
 
         assert!(result.is_ok());
 
-        assert!(!context.memo_dir.join("2025-01/30/143022.md").exists());
-        assert!(!context.memo_dir.join("2025-01/30/151545.md").exists());
+        assert!(!context.memo_dir.join("2025-01/30/20250130143022.md").exists());
+        assert!(!context.memo_dir.join("2025-01/30/20250130151545.md").exists());
 
-        assert!(context.archive_dir().join("2025-01/30/143022.md").exists());
-        assert!(context.archive_dir().join("2025-01/30/151545.md").exists());
+        assert!(context.archive_dir().join("2025-01/30/20250130143022.md").exists());
+        assert!(context.archive_dir().join("2025-01/30/20250130151545.md").exists());
 
-        assert!(context.memo_dir.join("2025-01/29/120000.md").exists());
+        assert!(context.memo_dir.join("2025-01/29/20250129120000.md").exists());
     }
 
     #[test]

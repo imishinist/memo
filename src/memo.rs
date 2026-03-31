@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_memo_document_from_memo_file() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+        let memo_path = temp_dir.path().join("2025-01/30/20250130143022.md");
         fs::create_dir_all(memo_path.parent().unwrap()).unwrap();
         fs::write(
             &memo_path,
@@ -205,7 +205,7 @@ Test content"#,
     #[test]
     fn test_memo_file_from_path() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+        let memo_path = temp_dir.path().join("2025-01/30/20250130143022.md");
         fs::create_dir_all(memo_path.parent().unwrap()).unwrap();
         fs::write(&memo_path, "Test content").unwrap();
 
@@ -218,7 +218,7 @@ Test content"#,
     #[test]
     fn test_memo_file_create() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let memo_path = temp_dir.path().join("2025-01/30/143022.md");
+        let memo_path = temp_dir.path().join("2025-01/30/20250130143022.md");
 
         let memo_file = MemoFile::create(&memo_path, "Test content".to_string()).unwrap();
         assert_eq!(memo_file.id.as_str(), "20250130143022");
@@ -232,8 +232,8 @@ Test content"#,
     #[test]
     fn test_memo_file_move_to() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let old_path = temp_dir.path().join("2025-01/30/143022.md");
-        let new_path = temp_dir.path().join(".archive/2025-01/30/143022.md");
+        let old_path = temp_dir.path().join("2025-01/30/20250130143022.md");
+        let new_path = temp_dir.path().join(".archive/2025-01/30/20250130143022.md");
 
         // 旧ファイルを作成
         fs::create_dir_all(old_path.parent().unwrap()).unwrap();

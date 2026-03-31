@@ -44,8 +44,8 @@ fn test_list_json_output_integration() {
     let context = TestContext::new();
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
-    context.create_memo("2025-01/30/151545.md", TestMemoTemplates::BASIC);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130151545.md", TestMemoTemplates::BASIC);
 
     let output = context.run_command(&["list", "--json"]);
 
@@ -73,8 +73,8 @@ fn test_list_with_front_matter_memos() {
     let context = TestContext::new();
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
-    context.create_memo("2025-01/30/151545.md", TestMemoTemplates::BASIC);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130151545.md", TestMemoTemplates::BASIC);
 
     let output = context.run_command(&["list"]);
 
@@ -88,7 +88,7 @@ fn test_list_json_with_frontmatter() {
     let context = TestContext::new();
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
 
     let output = context.run_command(&["list", "--json"]);
 
@@ -109,8 +109,8 @@ fn test_list_with_japanese_content() {
     let context = TestContext::new();
 
     // 日本語メモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
-    context.create_memo("2025-01/30/151545.md", "English memo");
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::JAPANESE);
+    context.create_memo("2025-01/30/20250130151545.md", "English memo");
 
     let output = context.run_command(&["list"]);
 
@@ -124,7 +124,7 @@ fn test_list_json_with_japanese_content() {
     let context = TestContext::new();
 
     // 日本語メモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::JAPANESE);
 
     let output = context.run_command(&["list", "--json"]);
 
@@ -144,7 +144,7 @@ fn test_list_with_special_characters() {
 
     // 特殊文字を含むメモを作成
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
@@ -161,7 +161,7 @@ fn test_list_preview_truncation() {
 
     // 非常に長いコンテンツのメモを作成
     let long_content = format!("# Long Content\n\n{}", "A".repeat(500));
-    context.create_memo("2025-01/30/143022.md", &long_content);
+    context.create_memo("2025-01/30/20250130143022.md", &long_content);
 
     let output = context.run_command(&["list"]);
 
@@ -185,8 +185,8 @@ invalid: [unclosed array
 
 This memo has broken frontmatter."#;
 
-    context.create_memo("2025-01/30/143022.md", broken_frontmatter);
-    context.create_memo("2025-01/30/151545.md", "Normal memo");
+    context.create_memo("2025-01/30/20250130143022.md", broken_frontmatter);
+    context.create_memo("2025-01/30/20250130151545.md", "Normal memo");
 
     let output = context.run_command(&["list"]);
 
@@ -208,7 +208,7 @@ invalid: [unclosed array
 
 This memo has broken frontmatter."#;
 
-    context.create_memo("2025-01/30/143022.md", broken_frontmatter);
+    context.create_memo("2025-01/30/20250130143022.md", broken_frontmatter);
 
     let output = context.run_command(&["list", "--json"]);
 

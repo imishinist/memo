@@ -79,7 +79,7 @@ mod dir_integration_tests {
         let context = TestContext::new();
 
         // テストメモを作成
-        context.create_memo("2025-01/30/143022.md", "Shell test content");
+        context.create_memo("2025-01/30/20250130143022.md", "Shell test content");
 
         // dirコマンドでパスを取得
         let dir_output = context.run_command(&["dir"]);

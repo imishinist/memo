@@ -7,7 +7,7 @@ fn test_show_existing_memo() {
     let context = TestContext::new();
 
     // テストメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::BASIC);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::BASIC);
 
     let output = context.run_command(&["show", "20250130143022"]);
 
@@ -31,7 +31,7 @@ fn test_show_empty_memo() {
     let context = TestContext::new();
 
     // 空のメモを作成
-    context.create_memo("2025-01/30/143022.md", "");
+    context.create_memo("2025-01/30/20250130143022.md", "");
 
     let output = context.run_command(&["show", "20250130143022"]);
 
@@ -46,7 +46,7 @@ fn test_show_multiline_content() {
     let context = TestContext::new();
 
     // 複数行コンテンツのメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::MULTILINE);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::MULTILINE);
 
     let output = context.run_command(&["show", "20250130143022"]);
 
@@ -63,7 +63,7 @@ fn test_show_with_special_characters() {
 
     // 特殊文字を含むメモを作成
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
@@ -83,7 +83,7 @@ fn test_show_with_japanese_content() {
     let context = TestContext::new();
 
     // 日本語メモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::JAPANESE);
 
     let output = context.run_command(&["show", "20250130143022"]);
 
@@ -101,7 +101,7 @@ fn test_show_with_frontmatter() {
     let context = TestContext::new();
 
     // フロントマター付きメモを作成
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::WITH_FRONT_MATTER);
 
     let output = context.run_command(&["show", "20250130143022"]);
 
@@ -133,7 +133,7 @@ invalid: [unclosed array
 
 This memo has broken frontmatter but should still be displayable."#;
 
-    context.create_memo("2025-01/30/143022.md", broken_frontmatter);
+    context.create_memo("2025-01/30/20250130143022.md", broken_frontmatter);
 
     let output = context.run_command(&["show", "20250130143022"]);
 

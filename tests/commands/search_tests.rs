@@ -3,7 +3,7 @@ use crate::utils::{TestContext, TestMemoTemplates, assertions::*};
 #[test]
 fn test_search_basic_query() {
     let context = TestContext::new();
-    context.create_memo("2025-01/30/143022.md", "This is a basic test memo");
+    context.create_memo("2025-01/30/20250130143022.md", "This is a basic test memo");
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -16,7 +16,7 @@ fn test_search_basic_query() {
 fn test_search_multiple_keywords() {
     let context = TestContext::new();
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         "This memo contains both keywords: test and search",
     );
 
@@ -30,7 +30,7 @@ fn test_search_multiple_keywords() {
 #[test]
 fn test_search_tag_search() {
     let context = TestContext::new();
-    context.create_memo("2025-01/30/143022.md", "Memo with @important tag");
+    context.create_memo("2025-01/30/20250130143022.md", "Memo with @important tag");
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -43,7 +43,7 @@ fn test_search_tag_search() {
 fn test_search_metadata_tag() {
     let context = TestContext::new();
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         r#"---
 tags: ["@project"]
 ---
@@ -71,7 +71,7 @@ fn test_search_frontmatter_search() {
         &["@meeting", "@important"],
         "Meeting notes content",
     );
-    context.create_memo("2025-01/30/143022.md", &front_matter_memo);
+    context.create_memo("2025-01/30/20250130143022.md", &front_matter_memo);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -83,7 +83,7 @@ fn test_search_frontmatter_search() {
 #[test]
 fn test_search_japanese_content() {
     let context = TestContext::new();
-    context.create_memo("2025-01/30/143022.md", TestMemoTemplates::JAPANESE);
+    context.create_memo("2025-01/30/20250130143022.md", TestMemoTemplates::JAPANESE);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -96,7 +96,7 @@ fn test_search_japanese_content() {
 fn test_search_result_display() {
     let context = TestContext::new();
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         "Searchable content for display test",
     );
 
@@ -110,7 +110,7 @@ fn test_search_result_display() {
 #[test]
 fn test_search_no_results() {
     let context = TestContext::new();
-    context.create_memo("2025-01/30/143022.md", "Some content");
+    context.create_memo("2025-01/30/20250130143022.md", "Some content");
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -132,7 +132,7 @@ fn test_search_empty_query() {
 fn test_search_with_emoji() {
     let context = TestContext::new();
     context.create_memo(
-        "2025-01/30/143022.md",
+        "2025-01/30/20250130143022.md",
         TestMemoTemplates::WITH_SPECIAL_CHARS,
     );
 
@@ -146,7 +146,7 @@ fn test_search_with_emoji() {
 #[test]
 fn test_search_special_characters_in_query() {
     let context = TestContext::new();
-    context.create_memo("2025-01/30/143022.md", "Content with special chars: !@#$%");
+    context.create_memo("2025-01/30/20250130143022.md", "Content with special chars: !@#$%");
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -168,7 +168,7 @@ tags: ["@urgent"]
 
 This task has numeric metadata for testing."#;
 
-    context.create_memo("2025-01/30/143022.md", memo_with_numeric_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", memo_with_numeric_metadata);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -195,7 +195,7 @@ tags: ["@complex", "@metadata"]
 
 This memo has nested metadata structures for testing."#;
 
-    context.create_memo("2025-01/30/143022.md", memo_with_nested_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", memo_with_nested_metadata);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -222,7 +222,7 @@ categories: ["work", "planning", "review"]
 
 This memo has array metadata for testing search functionality."#;
 
-    context.create_memo("2025-01/30/143022.md", memo_with_array_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", memo_with_array_metadata);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -249,7 +249,7 @@ empty_object: {}
 
 This memo has empty metadata values."#;
 
-    context.create_memo("2025-01/30/143022.md", memo_with_missing_metadata);
+    context.create_memo("2025-01/30/20250130143022.md", memo_with_missing_metadata);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);
@@ -279,7 +279,7 @@ unicode_field: "αβγδε ñáéíóú 🚀📝✅"
 
 This memo has special characters in metadata."#;
 
-    context.create_memo("2025-01/30/151545.md", memo_with_special_chars);
+    context.create_memo("2025-01/30/20250130151545.md", memo_with_special_chars);
 
     let index_output = context.run_command(&["index"]);
     assert_command_success(&index_output);

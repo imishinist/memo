@@ -2,10 +2,10 @@ use crate::utils::{TestContext, assertions::*};
 use std::fs;
 
 fn setup_test_memos(context: &TestContext) {
-    context.create_memo("2025-01/30/143022.md", "# Test memo 1\nContent 1\n@tag1");
-    context.create_memo("2025-01/30/151545.md", "# Test memo 2\nContent 2\n@tag2");
-    context.create_memo("2025-01/30/090000.md", "# Test memo 3\nContent 3\n@tag3");
-    context.create_memo("2025-01/29/120000.md", "# Test memo 4\nContent 4\n@tag4");
+    context.create_memo("2025-01/30/20250130143022.md", "# Test memo 1\nContent 1\n@tag1");
+    context.create_memo("2025-01/30/20250130151545.md", "# Test memo 2\nContent 2\n@tag2");
+    context.create_memo("2025-01/30/20250130090000.md", "# Test memo 3\nContent 3\n@tag3");
+    context.create_memo("2025-01/29/20250129120000.md", "# Test memo 4\nContent 4\n@tag4");
 }
 
 #[test]
@@ -13,11 +13,11 @@ fn test_archive_single_id() {
     let context = TestContext::new();
     setup_test_memos(&context);
 
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
+    let output = context.run_command(&["archive", "2025-01/30/20250130143022.md"]);
     assert_command_success(&output);
 
-    assert_memo_not_exists(&context, "2025-01/30/143022.md");
-    assert_memo_archived(&context, "2025-01/30/143022.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130143022.md");
+    assert_memo_archived(&context, "2025-01/30/20250130143022.md");
 
     // Check a .ignore file is created
     let ignore_path = context.memo_dir().join(".ignore");
@@ -31,20 +31,20 @@ fn test_archive_multiple_ids() {
     let context = TestContext::new();
     setup_test_memos(&context);
 
-    let output = context.run_command(&["archive", "2025-01/30/143022.md", "2025-01/30/151545.md"]);
+    let output = context.run_command(&["archive", "2025-01/30/20250130143022.md", "2025-01/30/20250130151545.md"]);
 
     assert_command_success(&output);
 
     // Check that original files are moved
-    assert_memo_not_exists(&context, "2025-01/30/143022.md");
-    assert_memo_not_exists(&context, "2025-01/30/151545.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130143022.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130151545.md");
 
     // Check that files exist in archive
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    assert_memo_archived(&context, "2025-01/30/151545.md");
+    assert_memo_archived(&context, "2025-01/30/20250130143022.md");
+    assert_memo_archived(&context, "2025-01/30/20250130151545.md");
 
     // Check that other file remains
-    assert_memo_exists(&context, "2025-01/30/090000.md");
+    assert_memo_exists(&context, "2025-01/30/20250130090000.md");
 }
 
 #[test]
@@ -57,17 +57,17 @@ fn test_archive_directory() {
     assert_command_success(&output);
 
     // Check that original directory files are moved
-    assert_memo_not_exists(&context, "2025-01/30/143022.md");
-    assert_memo_not_exists(&context, "2025-01/30/151545.md");
-    assert_memo_not_exists(&context, "2025-01/30/090000.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130143022.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130151545.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130090000.md");
 
     // Check that files exist in archive
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    assert_memo_archived(&context, "2025-01/30/151545.md");
-    assert_memo_archived(&context, "2025-01/30/090000.md");
+    assert_memo_archived(&context, "2025-01/30/20250130143022.md");
+    assert_memo_archived(&context, "2025-01/30/20250130151545.md");
+    assert_memo_archived(&context, "2025-01/30/20250130090000.md");
 
     // Check that other day remains
-    assert_memo_exists(&context, "2025-01/29/120000.md");
+    assert_memo_exists(&context, "2025-01/29/20250129120000.md");
 }
 
 #[test]
@@ -77,25 +77,25 @@ fn test_archive_mixed_targets() {
 
     let output = context.run_command(&[
         "archive",
-        "2025-01/30/143022.md", // File path
-        "2025-01/30/151545.md", // File path
+        "2025-01/30/20250130143022.md", // File path
+        "2025-01/30/20250130151545.md", // File path
         "2025-01/29/",          // Directory
     ]);
 
     assert_command_success(&output);
 
     // Check that files are moved
-    assert_memo_not_exists(&context, "2025-01/30/143022.md");
-    assert_memo_not_exists(&context, "2025-01/30/151545.md");
-    assert_memo_not_exists(&context, "2025-01/29/120000.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130143022.md");
+    assert_memo_not_exists(&context, "2025-01/30/20250130151545.md");
+    assert_memo_not_exists(&context, "2025-01/29/20250129120000.md");
 
     // Check that files exist in archive
-    assert_memo_archived(&context, "2025-01/30/143022.md");
-    assert_memo_archived(&context, "2025-01/30/151545.md");
-    assert_memo_archived(&context, "2025-01/29/120000.md");
+    assert_memo_archived(&context, "2025-01/30/20250130143022.md");
+    assert_memo_archived(&context, "2025-01/30/20250130151545.md");
+    assert_memo_archived(&context, "2025-01/29/20250129120000.md");
 
     // Check that remaining file exists
-    assert_memo_exists(&context, "2025-01/30/090000.md");
+    assert_memo_exists(&context, "2025-01/30/20250130090000.md");
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn test_archive_ignore_file_already_exists() {
     let ignore_path = context.memo_dir().join(".ignore");
     fs::write(&ignore_path, "existing_content\n").unwrap();
 
-    let output = context.run_command(&["archive", "2025-01/30/143022.md"]);
+    let output = context.run_command(&["archive", "2025-01/30/20250130143022.md"]);
 
     assert_command_success(&output);
 
@@ -163,7 +163,7 @@ mod archive_integration_tests {
         assert_command_success(&list_before);
         assert_output_contains(&list_before, "143022");
 
-        let archive_output = context.run_command(&["archive", "2025-01/30/143022.md"]);
+        let archive_output = context.run_command(&["archive", "2025-01/30/20250130143022.md"]);
         assert_command_success(&archive_output);
 
         let list_after = context.run_command(&["list"]);
@@ -178,18 +178,18 @@ mod archive_integration_tests {
         let context = TestContext::new();
         setup_test_memos(&context);
 
-        let archive1 = context.run_command(&["archive", "2025-01/30/143022.md"]);
+        let archive1 = context.run_command(&["archive", "2025-01/30/20250130143022.md"]);
         assert_command_success(&archive1);
 
-        let archive2 = context.run_command(&["archive", "2025-01/30/151545.md"]);
+        let archive2 = context.run_command(&["archive", "2025-01/30/20250130151545.md"]);
         assert_command_success(&archive2);
 
         let archive3 = context.run_command(&["archive", "2025-01/29/"]);
         assert_command_success(&archive3);
 
-        assert_memo_exists(&context, "2025-01/30/090000.md");
-        assert_memo_archived(&context, "2025-01/30/143022.md");
-        assert_memo_archived(&context, "2025-01/30/151545.md");
-        assert_memo_archived(&context, "2025-01/29/120000.md");
+        assert_memo_exists(&context, "2025-01/30/20250130090000.md");
+        assert_memo_archived(&context, "2025-01/30/20250130143022.md");
+        assert_memo_archived(&context, "2025-01/30/20250130151545.md");
+        assert_memo_archived(&context, "2025-01/29/20250129120000.md");
     }
 }
