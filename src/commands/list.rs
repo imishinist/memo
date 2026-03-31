@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_list_empty() {
         let (_temp_dir, context) = create_test_context();
-        let result = run(&context, false);
+        let result = run(&context, false, None);
         assert!(result.is_ok());
     }
 
@@ -113,7 +113,7 @@ mod tests {
         repo.create_memo("2025-01/30/151545.md", "Test memo 2".to_string())
             .unwrap();
 
-        let result = run(&context, false);
+        let result = run(&context, false, None);
         assert!(result.is_ok());
     }
 
@@ -126,7 +126,7 @@ mod tests {
         repo.create_memo("2025-01/30/143022.md", "Test memo".to_string())
             .unwrap();
 
-        let result = run(&context, true);
+        let result = run(&context, true, None);
         assert!(result.is_ok());
     }
 }

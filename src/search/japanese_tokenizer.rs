@@ -1,5 +1,5 @@
 use crate::error::MemoError;
-use lindera::dictionary::{DictionaryKind, load_dictionary_from_kind};
+use lindera::dictionary::{DictionaryKind, load_embedded_dictionary};
 use lindera::mode::Mode;
 use lindera::segmenter::Segmenter;
 use lindera::tokenizer::Tokenizer as LinderaTokenizer;
@@ -25,7 +25,7 @@ impl JapaneseTokenizer {
 
     /// トークナイザーを作成（エラーハンドリング付き）
     fn create_tokenizer() -> Result<LinderaTokenizer, MemoError> {
-        let dict = load_dictionary_from_kind(DictionaryKind::IPADIC)
+        let dict = load_embedded_dictionary(DictionaryKind::IPADIC)
             .map_err(|e| MemoError::Tokenizer(format!("Failed to load dictionary: {}", e)))?;
 
         let segmenter = Segmenter::new(Mode::Normal, dict, None);
@@ -61,17 +61,24 @@ impl<'a> JapaneseTokenStream<'a> {
         // トークナイザーが利用可能な場合のみLinderaでトークン化
         if let Some(tokenizer) = tokenizer {
             match tokenizer.tokenize(text) {
-                Ok(lindera_tokens) => {
-                    for lindera_token in lindera_tokens {
-                        let surface = lindera_token.text;
-                        let features = lindera_token.details.as_ref();
+                Ok(mut lindera_tokens) => {
+                    for lindera_token in &mut lindera_tokens {
+                        let surface = lindera_token.surface.to_string();
+                        let features: Option<Vec<String>> = {
+                            let details = lindera_token.details();
+                            if details.is_empty() {
+                                None
+                            } else {
+                                Some(details.iter().map(|s| s.to_string()).collect())
+                            }
+                        };
 
                         // 意味のあるトークンのみを追加
-                        if should_include_token(&surface, features) {
+                        if should_include_token(&surface, features.as_ref()) {
                             let mut token = Token::default();
 
                             // 基本形があれば基本形を、なければ表層形を使用
-                            token.text = if let Some(features_vec) = features {
+                            token.text = if let Some(features_vec) = &features {
                                 if features_vec.len() > 6
                                     && !features_vec[6].is_empty()
                                     && features_vec[6] != "*"
@@ -156,7 +163,7 @@ impl<'a> TokenStream for JapaneseTokenStream<'a> {
     }
 }
 
-fn should_include_token(surface: &str, features: Option<&Vec<std::borrow::Cow<str>>>) -> bool {
+fn should_include_token(surface: &str, features: Option<&Vec<String>>) -> bool {
     // 空文字や空白のみは除外
     if surface.trim().is_empty() {
         return false;
