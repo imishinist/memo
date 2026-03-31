@@ -6,3 +6,5 @@ pub mod index;
 pub mod list;
 pub mod search;
 pub mod show;
+pub mod tags;
+pub mod template;

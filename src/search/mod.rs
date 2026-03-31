@@ -100,6 +100,15 @@ impl SearchManager {
         Ok(())
     }
 
+    /// タグ一覧取得
+    pub fn list_tags(&self) -> Result<Vec<(String, u64)>, MemoError> {
+        if let Some(index) = self.get_current_index()? {
+            index.list_tags()
+        } else {
+            Ok(vec![])
+        }
+    }
+
     /// 検索実行
     pub fn search(&self, query: &str) -> Result<Vec<SearchResult>, MemoError> {
         if let Some(index) = self.get_current_index()? {

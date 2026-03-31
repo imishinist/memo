@@ -35,4 +35,8 @@ impl MemoContext {
     pub fn index_dir(&self) -> PathBuf {
         self.memo_dir.join(".index")
     }
+
+    pub fn templates_dir(&self) -> PathBuf {
+        self.memo_dir.join(".templates")
+    }
 }

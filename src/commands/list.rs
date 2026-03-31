@@ -26,9 +26,19 @@ where
     serializer.serialize_str(&dt.to_rfc3339())
 }
 
-pub fn run(context: &MemoContext, json_output: bool) -> MemoResult<()> {
+pub fn run(context: &MemoContext, json_output: bool, tag_filter: Option<&str>) -> MemoResult<()> {
     let repo = MemoRepository::new(context.clone());
-    let memos = repo.list_all_memos()?;
+    let mut memos = repo.list_all_memos()?;
+
+    if let Some(tag) = tag_filter {
+        memos.retain(|memo| {
+            memo.metadata.as_ref().map_or(false, |m| {
+                m.get("tags").and_then(|v| v.as_sequence()).map_or(false, |tags| {
+                    tags.iter().any(|t| t.as_str() == Some(tag))
+                })
+            })
+        });
+    }
 
     if json_output {
         if memos.is_empty() {

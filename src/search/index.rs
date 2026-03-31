@@ -187,6 +187,32 @@ impl SearchIndex {
         Ok(())
     }
 
+    pub fn list_tags(&self) -> std::result::Result<Vec<(String, u64)>, MemoError> {
+        let searcher = self.reader.searcher();
+        let mut merged = std::collections::HashMap::new();
+        for segment_reader in searcher.segment_readers() {
+            let facet_reader = segment_reader.facet_reader("tags.facet")?;
+            let alive_bitset = segment_reader.alive_bitset();
+            for doc_id in 0..segment_reader.max_doc() {
+                if alive_bitset.map_or(true, |bs| bs.is_alive(doc_id)) {
+                    let mut facet_ords = facet_reader.facet_ords(doc_id);
+                    while let Some(ord) = facet_ords.next() {
+                        let mut facet = tantivy::schema::Facet::root();
+                        facet_reader.facet_from_ord(ord, &mut facet)?;
+                        let facet_str = facet.to_string();
+                        if facet_str != "/" {
+                            let tag = facet_str.strip_prefix('/').unwrap_or(&facet_str).to_string();
+                            *merged.entry(tag).or_insert(0u64) += 1;
+                        }
+                    }
+                }
+            }
+        }
+        let mut result: Vec<_> = merged.into_iter().collect();
+        result.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        Ok(result)
+    }
+
     pub fn search(&self, query_str: &str) -> std::result::Result<Vec<SearchResult>, MemoError> {
         let searcher = self.reader.searcher();
 
